@@ -306,27 +306,17 @@ export default function App() {
                 ))}
               </div>
 
-              {workoutProgress === 100 && (
-                <motion.div 
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-12 p-8 glass-panel rounded-[2.5rem] text-center border-emerald-500/30"
+              <div className="mt-12">
+                <button 
+                  onClick={finishWorkout}
+                  className="w-full py-6 bg-emerald-500 text-white font-display font-black uppercase tracking-[0.2em] rounded-3xl hover:bg-emerald-400 transition-all active:scale-95 shadow-[0_15px_40px_rgba(16,185,129,0.3)] flex items-center justify-center gap-3"
                 >
-                  <div className="w-16 h-16 bg-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_10px_30px_rgba(16,185,129,0.4)]">
-                    <CheckCircle className="w-8 h-8 text-white" />
-                  </div>
-                  <h3 className="text-2xl font-display font-black text-[#1a1a1a] tracking-tight mb-2">Session Complete</h3>
-                  <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-8">Protocol fully executed</p>
-                  <button 
-                    onClick={finishWorkout}
-                    className="w-full py-6 bg-emerald-500 text-white font-display font-black uppercase tracking-[0.2em] rounded-3xl hover:bg-emerald-400 transition-all active:scale-95 shadow-[0_15px_40px_rgba(16,185,129,0.3)]"
-                  >
-                    Go to Next Session
-                  </button>
-                </motion.div>
-              )}
+                  <CheckCircle className="w-5 h-5" />
+                  Finish Session
+                </button>
+              </div>
 
-              <div className="flex gap-4 mt-20">
+              <div className="flex gap-4 mt-12">
                 <button 
                   onClick={exportData}
                   className="flex-1 py-6 glass-button rounded-3xl text-emerald-500 font-display font-bold text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 transition-all"
