@@ -14,7 +14,7 @@ import {
   History as HistoryIcon, 
   Flame,
   Trash2,
-  TrendingUp,
+  ArrowUp,
   Target,
   Timer,
   X,
@@ -239,14 +239,8 @@ export default function App() {
     }
   };
 
-  const exportData = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(logs));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", `ppl_log_backup_${today}.json`);
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const addSet = (exercise: Exercise) => {
@@ -355,12 +349,22 @@ export default function App() {
             {/* Workout Content */}
             <main className="p-6 max-w-2xl mx-auto">
               <div className="flex items-end justify-between mb-12 mt-6">
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-emerald-500">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 text-emerald-500 mb-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                     <span className="text-[10px] font-black uppercase tracking-[0.2em]">Active Session</span>
                   </div>
-                  <h2 className="text-2xl font-display font-black text-[#1a1a1a] tracking-tighter leading-none">{currentDay.name}</h2>
+                  {(() => {
+                    const match = currentDay.name.match(/^(.*?)\s*(\(.*\))$/);
+                    const dayTitle = match ? match[1] : currentDay.name;
+                    const dayFocus = match ? match[2] : '';
+                    return (
+                      <>
+                        <h2 className="text-2xl font-display font-bold text-[#1a1a1a] tracking-tighter leading-tight text-left">{dayTitle}</h2>
+                        {dayFocus && <p className="text-sm font-display font-semibold text-zinc-500 tracking-tight leading-none text-left">{dayFocus}</p>}
+                      </>
+                    );
+                  })()}
                 </div>
                 <div className="flex gap-3">
                   <button 
@@ -381,16 +385,16 @@ export default function App() {
               </div>
 
               {/* Stats Overview */}
-              <div className="grid grid-cols-3 gap-5 mb-12 items-start">
-                <div className="glass-card rounded-[2.5rem] p-6">
+              <div className="grid grid-cols-3 gap-5 mb-12 items-stretch">
+                <div className="glass-card rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center">
                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Exercises</p>
                   <p className="text-2xl font-display font-black font-mono text-[#1a1a1a]">{currentDay.exercises.length}</p>
                 </div>
-                <div className="glass-card rounded-[2.5rem] p-6">
+                <div className="glass-card rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center">
                   <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mb-2 whitespace-nowrap">Total Sets</p>
                   <p className="text-2xl font-display font-black font-mono text-[#1a1a1a]">{currentDay.exercises.reduce((acc, ex) => acc + ex.sets, 0)}</p>
                 </div>
-                <div className="glass-card rounded-[2.5rem] p-6">
+                <div className="glass-card rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center">
                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Progress</p>
                   <p className="text-2xl font-display font-black font-mono text-emerald-500">{Math.round(workoutProgress)}%</p>
                 </div>
@@ -428,11 +432,11 @@ export default function App() {
 
               <div className="flex gap-4 mt-12">
                 <button 
-                  onClick={exportData}
+                  onClick={scrollToTop}
                   className="flex-1 py-6 glass-button rounded-3xl text-emerald-500 font-display font-bold text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 transition-all"
                 >
-                  <TrendingUp className="w-4 h-4" />
-                  Save to Device
+                  <ArrowUp className="w-4 h-4" />
+                  Back to Top
                 </button>
                 <button 
                   onClick={clearToday}
