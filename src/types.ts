@@ -19,10 +19,8 @@ export interface SetLog {
 }
 
 export interface WorkoutLog {
-  [exerciseName: string]: {
-    variation: string;
-    sets: SetLog[];
-  };
+  exerciseOrder?: string[];
+  [exerciseName: string]: any;
 }
 
 export interface DailyLog {

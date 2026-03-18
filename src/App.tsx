@@ -20,9 +20,10 @@ import {
   X,
   Play,
   Pause,
-  RotateCcw
+  RotateCcw,
+  GripVertical
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence, Reorder } from 'motion/react';
 import { PPL_PROGRAM } from './data/program';
 import { DailyLog, WorkoutLog, SetLog, Exercise } from './types';
 
@@ -151,9 +152,30 @@ export default function App() {
     });
   };
 
+  const updateExerciseOrder = (newOrder: string[]) => {
+    setLogs(prev => {
+      const newLogs = { ...prev };
+      if (!newLogs[today]) newLogs[today] = {};
+      if (!newLogs[today][currentDay.id]) newLogs[today][currentDay.id] = {};
+      
+      newLogs[today][currentDay.id].exerciseOrder = newOrder;
+      return newLogs;
+    });
+  };
+
   const getExerciseLog = (exerciseName: string) => {
     return logs[today]?.[currentDay.id]?.[exerciseName];
   };
+
+  const currentDayExercises = useMemo(() => {
+    const sessionOrder = logs[today]?.[currentDay.id]?.exerciseOrder;
+    if (sessionOrder) {
+      return sessionOrder
+        .map(name => currentDay.exercises.find(ex => ex.name === name))
+        .filter((ex): ex is Exercise => !!ex);
+    }
+    return currentDay.exercises;
+  }, [logs, today, currentDay]);
 
   const workoutProgress = useMemo(() => {
     const dayLog = logs[today]?.[currentDay.id];
@@ -351,20 +373,26 @@ export default function App() {
                 </div>
               </div>
 
-              <div className="space-y-2">
-                {currentDay.exercises.map((ex) => (
-                  <ExerciseCard 
-                    key={ex.name} 
-                    exercise={ex} 
-                    log={getExerciseLog(ex.name)}
-                    prevLog={getPreviousWorkoutData?.[ex.name]}
-                    onUpdateSet={(setIdx, field, val) => updateSet(ex, setIdx, field, val)}
-                    onUpdateVariation={(val) => updateVariation(ex.name, val)}
-                    onAddSet={() => addSet(ex)}
-                    onRemoveSet={() => removeSet(ex)}
-                  />
+              <Reorder.Group 
+                axis="y" 
+                values={currentDayExercises.map(ex => ex.name)} 
+                onReorder={updateExerciseOrder}
+                className="space-y-2"
+              >
+                {currentDayExercises.map((ex) => (
+                  <Reorder.Item key={ex.name} value={ex.name}>
+                    <ExerciseCard 
+                      exercise={ex} 
+                      log={getExerciseLog(ex.name)}
+                      prevLog={getPreviousWorkoutData?.[ex.name]}
+                      onUpdateSet={(setIdx, field, val) => updateSet(ex, setIdx, field, val)}
+                      onUpdateVariation={(val) => updateVariation(ex.name, val)}
+                      onAddSet={() => addSet(ex)}
+                      onRemoveSet={() => removeSet(ex)}
+                    />
+                  </Reorder.Item>
                 ))}
-              </div>
+              </Reorder.Group>
 
               <div className="mt-12">
                 <button 
@@ -430,10 +458,10 @@ export default function App() {
                       <div key={workoutId} className="mt-6 pt-6 border-t border-black/5">
                         <p className="text-base font-display font-black text-[#1a1a1a] uppercase tracking-tight">{PPL_PROGRAM.find(p => p.id === workoutId)?.name}</p>
                         <div className="flex flex-wrap gap-2.5 mt-4">
-                          {Object.keys(workoutLog).slice(0, 4).map(ex => (
+                          {Object.keys(workoutLog).filter(k => k !== 'exerciseOrder').slice(0, 4).map(ex => (
                             <span key={ex} className="text-[9px] font-bold glass-inset px-3 py-2 rounded-xl text-zinc-400 uppercase tracking-widest">{ex}</span>
                           ))}
-                          {Object.keys(workoutLog).length > 4 && <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest">+{Object.keys(workoutLog).length - 4} more</span>}
+                          {Object.keys(workoutLog).filter(k => k !== 'exerciseOrder').length > 4 && <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest">+{Object.keys(workoutLog).filter(k => k !== 'exerciseOrder').length - 4} more</span>}
                         </div>
                       </div>
                     ))}
@@ -649,25 +677,30 @@ function ExerciseCard({
       }`}
     >
       {/* Accordion Header */}
-      <button 
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full text-left p-8 flex justify-between items-center glass-button !rounded-[2.5rem] !border-none hover:bg-white/20 transition-colors"
-      >
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h3 className="text-[15px] font-display font-bold tracking-tight text-[#1a1a1a]">{exercise.name}</h3>
-            {isFullyCompleted && <CheckCircle className="w-5 h-5 text-emerald-500 fill-emerald-500/10" />}
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
-              {sets.length} Sets <span className="text-zinc-200 mx-2">|</span> {exercise.reps} Reps
-            </span>
-          </div>
+      <div className="flex items-center glass-button !rounded-[2.5rem] !border-none hover:bg-white/20 transition-colors">
+        <div className="pl-6 cursor-grab active:cursor-grabbing text-zinc-300">
+          <GripVertical className="w-5 h-5" />
         </div>
-        <div className={`p-3 rounded-2xl glass-button transition-transform duration-500 ${isExpanded ? 'rotate-180' : ''}`}>
-          <ChevronDown className="w-5 h-5 text-zinc-400" />
-        </div>
-      </button>
+        <button 
+          onClick={() => setIsExpanded(!isExpanded)}
+          className="flex-1 text-left p-8 pl-4 flex justify-between items-center"
+        >
+          <div className="space-y-1">
+            <div className="flex items-center gap-3">
+              <h3 className="text-[15px] font-display font-bold tracking-tight text-[#1a1a1a]">{exercise.name}</h3>
+              {isFullyCompleted && <CheckCircle className="w-5 h-5 text-emerald-500 fill-emerald-500/10" />}
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
+                {sets.length} Sets <span className="text-zinc-200 mx-2">|</span> {exercise.reps} Reps
+              </span>
+            </div>
+          </div>
+          <div className={`p-3 rounded-2xl glass-button transition-transform duration-500 ${isExpanded ? 'rotate-180' : ''}`}>
+            <ChevronDown className="w-5 h-5 text-zinc-400" />
+          </div>
+        </button>
+      </div>
 
       {/* Accordion Content */}
       <AnimatePresence>
