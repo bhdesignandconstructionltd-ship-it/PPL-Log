@@ -204,6 +204,64 @@ export default function App() {
     downloadAnchorNode.remove();
   };
 
+  const addSet = (exercise: Exercise) => {
+    const exerciseName = exercise.name;
+    setLogs(prev => {
+      const newLogs = { ...prev };
+      if (!newLogs[today]) newLogs[today] = {};
+      if (!newLogs[today][currentDay.id]) newLogs[today][currentDay.id] = {};
+      
+      const workoutLog = newLogs[today][currentDay.id];
+      if (!workoutLog[exerciseName]) {
+        const prevVariation = getPreviousWorkoutData?.[exerciseName]?.variation;
+        workoutLog[exerciseName] = {
+          variation: prevVariation || exercise.options[0] || '',
+          sets: Array(exercise.sets).fill(null).map(() => ({
+            weight: '',
+            reps: '',
+            completed: false
+          }))
+        };
+      }
+
+      workoutLog[exerciseName].sets.push({
+        weight: '',
+        reps: '',
+        completed: false
+      });
+
+      return newLogs;
+    });
+  };
+
+  const removeSet = (exercise: Exercise) => {
+    const exerciseName = exercise.name;
+    setLogs(prev => {
+      const newLogs = { ...prev };
+      if (!newLogs[today]) newLogs[today] = {};
+      if (!newLogs[today][currentDay.id]) newLogs[today][currentDay.id] = {};
+      
+      const workoutLog = newLogs[today][currentDay.id];
+      if (!workoutLog[exerciseName]) {
+        const prevVariation = getPreviousWorkoutData?.[exerciseName]?.variation;
+        workoutLog[exerciseName] = {
+          variation: prevVariation || exercise.options[0] || '',
+          sets: Array(exercise.sets).fill(null).map(() => ({
+            weight: '',
+            reps: '',
+            completed: false
+          }))
+        };
+      }
+
+      if (workoutLog[exerciseName].sets.length > 1) {
+        workoutLog[exerciseName].sets.pop();
+      }
+
+      return newLogs;
+    });
+  };
+
   const finishWorkout = () => {
     setActiveDayIndex(prev => (prev + 1) % PPL_PROGRAM.length);
     setActiveTab('workout');
@@ -302,6 +360,8 @@ export default function App() {
                     prevLog={getPreviousWorkoutData?.[ex.name]}
                     onUpdateSet={(setIdx, field, val) => updateSet(ex, setIdx, field, val)}
                     onUpdateVariation={(val) => updateVariation(ex.name, val)}
+                    onAddSet={() => addSet(ex)}
+                    onRemoveSet={() => removeSet(ex)}
                   />
                 ))}
               </div>
@@ -561,6 +621,8 @@ interface ExerciseCardProps {
   };
   onUpdateSet: (idx: number, field: keyof SetLog, val: any) => void;
   onUpdateVariation: (val: string) => void;
+  onAddSet: () => void;
+  onRemoveSet: () => void;
 }
 
 function ExerciseCard({ 
@@ -568,14 +630,16 @@ function ExerciseCard({
   log, 
   prevLog,
   onUpdateSet, 
-  onUpdateVariation 
+  onUpdateVariation,
+  onAddSet,
+  onRemoveSet
 }: ExerciseCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const variation = log?.variation || prevLog?.variation || exercise.options[0];
   const sets = log?.sets || Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }));
 
   const completedCount = sets.filter(s => s.completed).length;
-  const isFullyCompleted = completedCount === exercise.sets;
+  const isFullyCompleted = completedCount === sets.length;
 
   return (
     <motion.div 
@@ -596,7 +660,7 @@ function ExerciseCard({
           </div>
           <div className="flex items-center gap-2">
             <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
-              {exercise.sets} Sets <span className="text-zinc-200 mx-2">|</span> {exercise.reps} Reps
+              {sets.length} Sets <span className="text-zinc-200 mx-2">|</span> {exercise.reps} Reps
             </span>
           </div>
         </div>
@@ -616,7 +680,24 @@ function ExerciseCard({
           >
             <div className="px-8 pb-8 pt-2 space-y-8 border-t border-black/5">
               <div className="flex justify-between items-center">
-                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Variation Selection</p>
+                <div className="flex items-center gap-4">
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Variation</p>
+                  <div className="flex items-center gap-2">
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); onRemoveSet(); }}
+                      className="w-8 h-8 glass-button rounded-lg flex items-center justify-center text-zinc-400 hover:text-red-500"
+                    >
+                      -
+                    </button>
+                    <span className="text-[10px] font-mono font-bold text-zinc-600">{sets.length}</span>
+                    <button 
+                      onClick={(e) => { e.stopPropagation(); onAddSet(); }}
+                      className="w-8 h-8 glass-button rounded-lg flex items-center justify-center text-zinc-400 hover:text-emerald-500"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
                 <div className="relative">
                   <select 
                     className="appearance-none glass-button text-[9px] font-bold uppercase tracking-widest rounded-xl py-2 pl-4 pr-10 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all cursor-pointer text-[#1a1a1a]"
