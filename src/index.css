@@ -9,10 +9,14 @@
 
 @layer base {
   body {
-    @apply bg-[#f5f5f5] text-[#1a1a1a] antialiased;
+    @apply bg-[#f5f5f5] text-[#1a1a1a] antialiased select-none;
     background-image: radial-gradient(#d1d5db 1px, transparent 1px);
     background-size: 24px 24px;
     background-attachment: fixed;
+  }
+
+  input, textarea {
+    @apply select-text;
   }
 }
 

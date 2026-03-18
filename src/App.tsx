@@ -23,13 +23,36 @@ import {
   RotateCcw,
   GripVertical
 } from 'lucide-react';
-import { motion, AnimatePresence, Reorder } from 'motion/react';
+import { motion, AnimatePresence, Reorder, useDragControls } from 'motion/react';
 import { PPL_PROGRAM } from './data/program';
 import { DailyLog, WorkoutLog, SetLog, Exercise } from './types';
 
 const STORAGE_KEY = 'ppl_pro_logs';
 const DAY_INDEX_KEY = 'ppl_pro_day_index';
 const SETTINGS_KEY = 'ppl_pro_settings';
+
+function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updateSet, updateVariation, addSet, removeSet, onReorder }: any) {
+  const controls = useDragControls();
+  return (
+    <Reorder.Item 
+      value={ex.name} 
+      dragControls={controls}
+      dragListener={false}
+      className="relative"
+    >
+      <ExerciseCard 
+        exercise={ex} 
+        log={getExerciseLog(ex.name)}
+        prevLog={getPreviousWorkoutData?.[ex.name]}
+        onUpdateSet={(setIdx: number, field: any, val: any) => updateSet(ex, setIdx, field, val)}
+        onUpdateVariation={(val: string) => updateVariation(ex.name, val)}
+        onAddSet={() => addSet(ex)}
+        onRemoveSet={() => removeSet(ex)}
+        dragControls={controls}
+      />
+    </Reorder.Item>
+  );
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'workout' | 'history' | 'settings'>('workout');
@@ -380,17 +403,16 @@ export default function App() {
                 className="space-y-2"
               >
                 {currentDayExercises.map((ex) => (
-                  <Reorder.Item key={ex.name} value={ex.name}>
-                    <ExerciseCard 
-                      exercise={ex} 
-                      log={getExerciseLog(ex.name)}
-                      prevLog={getPreviousWorkoutData?.[ex.name]}
-                      onUpdateSet={(setIdx, field, val) => updateSet(ex, setIdx, field, val)}
-                      onUpdateVariation={(val) => updateVariation(ex.name, val)}
-                      onAddSet={() => addSet(ex)}
-                      onRemoveSet={() => removeSet(ex)}
-                    />
-                  </Reorder.Item>
+                  <ReorderableExercise 
+                    key={ex.name}
+                    ex={ex}
+                    getExerciseLog={getExerciseLog}
+                    getPreviousWorkoutData={getPreviousWorkoutData}
+                    updateSet={updateSet}
+                    updateVariation={updateVariation}
+                    addSet={addSet}
+                    removeSet={removeSet}
+                  />
                 ))}
               </Reorder.Group>
 
@@ -651,6 +673,7 @@ interface ExerciseCardProps {
   onUpdateVariation: (val: string) => void;
   onAddSet: () => void;
   onRemoveSet: () => void;
+  dragControls: any;
 }
 
 function ExerciseCard({ 
@@ -660,7 +683,8 @@ function ExerciseCard({
   onUpdateSet, 
   onUpdateVariation,
   onAddSet,
-  onRemoveSet
+  onRemoveSet,
+  dragControls
 }: ExerciseCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const variation = log?.variation || prevLog?.variation || exercise.options[0];
@@ -678,7 +702,32 @@ function ExerciseCard({
     >
       {/* Accordion Header */}
       <div className="flex items-center glass-button !rounded-[2.5rem] !border-none hover:bg-white/20 transition-colors">
-        <div className="pl-6 cursor-grab active:cursor-grabbing text-zinc-300">
+        <div 
+          className="pl-6 cursor-grab active:cursor-grabbing text-zinc-300 touch-none"
+          onPointerDown={(e) => {
+            const startX = e.clientX;
+            const startY = e.clientY;
+            const timer = setTimeout(() => {
+              dragControls.start(e);
+            }, 500);
+            
+            const onPointerMove = (moveEvent: PointerEvent) => {
+              if (Math.abs(moveEvent.clientX - startX) > 10 || Math.abs(moveEvent.clientY - startY) > 10) {
+                clearTimeout(timer);
+                window.removeEventListener('pointermove', onPointerMove);
+              }
+            };
+            
+            const onPointerUp = () => {
+              clearTimeout(timer);
+              window.removeEventListener('pointermove', onPointerMove);
+              window.removeEventListener('pointerup', onPointerUp);
+            };
+            
+            window.addEventListener('pointermove', onPointerMove);
+            window.addEventListener('pointerup', onPointerUp);
+          }}
+        >
           <GripVertical className="w-5 h-5" />
         </div>
         <button 
