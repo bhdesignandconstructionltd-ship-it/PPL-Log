@@ -28,6 +28,7 @@ import { DailyLog, WorkoutLog, SetLog, Exercise } from './types';
 
 const STORAGE_KEY = 'ppl_pro_logs';
 const DAY_INDEX_KEY = 'ppl_pro_day_index';
+const SETTINGS_KEY = 'ppl_pro_settings';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'workout' | 'history' | 'settings'>('workout');
@@ -38,6 +39,16 @@ export default function App() {
   const [logs, setLogs] = useState<DailyLog>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : {};
+  });
+
+  // Settings State
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    return saved ? JSON.parse(saved) : {
+      restIntervalUpper: 60,
+      restIntervalLower: 90,
+      weightUnit: 'kg'
+    };
   });
 
   // Timer State
@@ -56,6 +67,10 @@ export default function App() {
     localStorage.setItem(DAY_INDEX_KEY, activeDayIndex.toString());
   }, [activeDayIndex]);
 
+  useEffect(() => {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+  }, [settings]);
+
   // Timer Logic
   useEffect(() => {
     let interval: any;
@@ -71,7 +86,7 @@ export default function App() {
   }, [timerActive, timerSeconds]);
 
   const startRestTimer = (exercise: Exercise) => {
-    const seconds = exercise.bodyPart === 'lower' ? 90 : 60;
+    const seconds = exercise.bodyPart === 'lower' ? settings.restIntervalLower : settings.restIntervalUpper;
     setInitialTimerSeconds(seconds);
     setTimerSeconds(seconds);
     setTimerActive(true);
@@ -396,26 +411,42 @@ export default function App() {
 
             <div className="space-y-10">
               <section>
-                <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] mb-6">Biometric Profile</h3>
-                <div className="glass-card rounded-[2.5rem] p-8 flex items-center gap-6">
-                  <div className="w-24 h-24 bg-emerald-500 rounded-3xl flex items-center justify-center text-4xl font-display font-black text-white shadow-[0_10px_30px_rgba(16,185,129,0.3)]">BH</div>
-                  <div>
-                    <p className="text-2xl font-display font-black tracking-tight text-[#1a1a1a]">Bodybuilder Pro</p>
-                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mt-2">PPL Recomp Protocol v2.5</p>
-                  </div>
-                </div>
-              </section>
-
-              <section>
                 <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] mb-6">System Configuration</h3>
                 <div className="space-y-4">
                   <div className="glass-card rounded-3xl p-6 flex justify-between items-center">
-                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">Rest Interval</span>
-                    <span className="text-emerald-500 font-display font-black font-mono">60s</span>
+                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">Upper Body Rest</span>
+                    <select 
+                      value={settings.restIntervalUpper}
+                      onChange={(e) => setSettings({ ...settings, restIntervalUpper: parseInt(e.target.value) })}
+                      className="glass-button text-emerald-500 font-display font-black font-mono px-4 py-2 rounded-xl outline-none"
+                    >
+                      {[30, 45, 60, 75, 90, 105, 120].map(s => (
+                        <option key={s} value={s}>{s}s</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="glass-card rounded-3xl p-6 flex justify-between items-center">
+                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">Lower Body Rest</span>
+                    <select 
+                      value={settings.restIntervalLower}
+                      onChange={(e) => setSettings({ ...settings, restIntervalLower: parseInt(e.target.value) })}
+                      className="glass-button text-emerald-500 font-display font-black font-mono px-4 py-2 rounded-xl outline-none"
+                    >
+                      {[60, 75, 90, 105, 120, 135, 150, 180].map(s => (
+                        <option key={s} value={s}>{s}s</option>
+                      ))}
+                    </select>
                   </div>
                   <div className="glass-card rounded-3xl p-6 flex justify-between items-center">
                     <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">Weight Unit</span>
-                    <span className="text-emerald-500 font-display font-black font-mono uppercase">Kilograms</span>
+                    <select 
+                      value={settings.weightUnit}
+                      onChange={(e) => setSettings({ ...settings, weightUnit: e.target.value })}
+                      className="glass-button text-emerald-500 font-display font-black font-mono px-4 py-2 rounded-xl outline-none uppercase"
+                    >
+                      <option value="kg">kg</option>
+                      <option value="lb">lb</option>
+                    </select>
                   </div>
                 </div>
               </section>

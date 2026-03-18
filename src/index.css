@@ -26,7 +26,7 @@
 }
 
 .glass-button {
-  @apply bg-white/40 backdrop-blur-md border border-white/60 transition-all active:scale-95 hover:bg-white/60;
+  @apply bg-white/40 backdrop-blur-md border border-white/60 transition-all active:scale-95 active:opacity-50 duration-500 hover:bg-white/60;
   box-shadow: 
     0 4px 12px rgba(0, 0, 0, 0.05),
     inset 0 1px 1px rgba(255, 255, 255, 0.8),
