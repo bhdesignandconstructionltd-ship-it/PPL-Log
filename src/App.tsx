@@ -21,9 +21,24 @@ import {
   Play,
   Pause,
   RotateCcw,
-  GripVertical
+  GripVertical,
+  Calendar as CalendarIcon,
+  ArrowLeft
 } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'motion/react';
+import { 
+  format, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval, 
+  isSameDay, 
+  addMonths, 
+  subMonths, 
+  startOfWeek, 
+  endOfWeek,
+  isToday,
+  parseISO
+} from 'date-fns';
 import { PPL_PROGRAM } from './data/program';
 import { DailyLog, WorkoutLog, SetLog, Exercise } from './types';
 
@@ -56,6 +71,8 @@ function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updat
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'workout' | 'history' | 'settings'>('workout');
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [activeDayIndex, setActiveDayIndex] = useState(() => {
     const saved = localStorage.getItem(DAY_INDEX_KEY);
     return saved ? parseInt(saved, 10) : 0;
@@ -239,10 +256,38 @@ export default function App() {
     }
   };
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+  const calculateTotalWeight = (workoutLog: WorkoutLog) => {
+    let total = 0;
+    Object.entries(workoutLog).forEach(([key, value]) => {
+      if (key !== 'exerciseOrder' && value.sets) {
+        value.sets.forEach((set: SetLog) => {
+          if (set.completed && set.weight && set.reps) {
+            total += parseFloat(set.weight) * parseFloat(set.reps);
+          }
+        });
+      }
+    });
+    return total;
   };
 
+  const getPreviousWorkoutWeight = (workoutId: string, beforeDate: string) => {
+    const dates = Object.keys(logs).sort((a, b) => b.localeCompare(a));
+    const previousDate = dates.find(d => d < beforeDate && logs[d][workoutId]);
+    if (previousDate) {
+      return calculateTotalWeight(logs[previousDate][workoutId]);
+    }
+    return null;
+  };
+
+  const daysInMonth = eachDayOfInterval({
+    start: startOfWeek(startOfMonth(currentMonth)),
+    end: endOfWeek(endOfMonth(currentMonth)),
+  });
+
+  const hasWorkoutOnDate = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return logs[dateStr] && Object.keys(logs[dateStr]).length > 0;
+  };
   const addSet = (exercise: Exercise) => {
     const exerciseName = exercise.name;
     setLogs(prev => {
@@ -299,6 +344,10 @@ export default function App() {
 
       return newLogs;
     });
+  };
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const finishWorkout = () => {
@@ -458,43 +507,183 @@ export default function App() {
             exit={{ opacity: 0, x: -20 }}
             className="p-8 pb-40"
           >
-            <div className="flex items-center gap-4 mb-12">
-              <div className="glass-panel p-3 rounded-2xl">
-                <HistoryIcon className="w-6 h-6 text-emerald-500" />
-              </div>
-              <h1 className="text-4xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">History</h1>
-            </div>
-            
-            <div className="space-y-8">
-              {Object.entries(logs).length === 0 ? (
-                <div className="text-center py-40 text-zinc-300">
-                  <Target className="w-20 h-20 mx-auto mb-6 opacity-20" />
-                  <p className="font-display font-bold uppercase tracking-[0.3em] text-[10px]">No session logs detected</p>
+            <div className="flex items-center justify-between mb-12">
+              <div className="flex items-center gap-4">
+                <div className="glass-panel p-3 rounded-2xl">
+                  <CalendarIcon className="w-6 h-6 text-emerald-500" />
                 </div>
-              ) : (
-                Object.entries(logs).sort((a, b) => b[0].localeCompare(a[0])).map(([date, dayLogs]) => (
-                  <div key={date} className="glass-card rounded-[2.5rem] p-8">
-                    <div className="flex justify-between items-center mb-8">
-                      <h3 className="font-display font-black text-emerald-500 uppercase tracking-tighter text-xl">
-                        {new Date(date).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
-                      </h3>
-                      <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">{Object.keys(dayLogs).length} Sessions</span>
-                    </div>
-                    {Object.entries(dayLogs).map(([workoutId, workoutLog]) => (
-                      <div key={workoutId} className="mt-6 pt-6 border-t border-black/5">
-                        <p className="text-base font-display font-black text-[#1a1a1a] uppercase tracking-tight">{PPL_PROGRAM.find(p => p.id === workoutId)?.name}</p>
-                        <div className="flex flex-wrap gap-2.5 mt-4">
-                          {Object.keys(workoutLog).filter(k => k !== 'exerciseOrder').slice(0, 4).map(ex => (
-                            <span key={ex} className="text-[9px] font-bold glass-inset px-3 py-2 rounded-xl text-zinc-400 uppercase tracking-widest">{ex}</span>
-                          ))}
-                          {Object.keys(workoutLog).filter(k => k !== 'exerciseOrder').length > 4 && <span className="text-[9px] font-bold text-zinc-300 uppercase tracking-widest">+{Object.keys(workoutLog).filter(k => k !== 'exerciseOrder').length - 4} more</span>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ))
+                <h1 className="text-4xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">History</h1>
+              </div>
+              {selectedDate && (
+                <button 
+                  onClick={() => setSelectedDate(null)}
+                  className="glass-button p-3 rounded-2xl text-emerald-500"
+                >
+                  <ArrowLeft className="w-5 h-5" />
+                </button>
               )}
             </div>
+            
+            <AnimatePresence mode="wait">
+              {!selectedDate ? (
+                <motion.div
+                  key="calendar"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-8"
+                >
+                  <div className="glass-card rounded-[2.5rem] p-8">
+                    <div className="flex items-center justify-between mb-8">
+                      <h3 className="font-display font-black text-[#1a1a1a] uppercase tracking-tighter text-xl">
+                        {format(currentMonth, 'MMMM yyyy')}
+                      </h3>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                          className="glass-button p-2 rounded-xl"
+                        >
+                          <ChevronLeft className="w-5 h-5 text-zinc-400" />
+                        </button>
+                        <button 
+                          onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                          className="glass-button p-2 rounded-xl"
+                        >
+                          <ChevronRight className="w-5 h-5 text-zinc-400" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-2 mb-4">
+                      {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+                        <div key={i} className="text-center text-[10px] font-black text-zinc-300 uppercase tracking-widest py-2">
+                          {day}
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="grid grid-cols-7 gap-2">
+                      {daysInMonth.map((day, i) => {
+                        const dateStr = format(day, 'yyyy-MM-dd');
+                        const hasWorkout = hasWorkoutOnDate(day);
+                        const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
+                        const isTodayDate = isToday(day);
+
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => hasWorkout && setSelectedDate(dateStr)}
+                            disabled={!hasWorkout && isCurrentMonth}
+                            className={`
+                              aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all relative
+                              ${!isCurrentMonth ? 'opacity-10 pointer-events-none' : ''}
+                              ${hasWorkout ? 'glass-button text-emerald-500 hover:scale-105 active:scale-95' : 'text-zinc-300'}
+                              ${isTodayDate ? 'ring-2 ring-emerald-500 ring-offset-4 ring-offset-[#f5f5f5]' : ''}
+                            `}
+                          >
+                            <span className="text-xs font-black font-mono">{format(day, 'd')}</span>
+                            {hasWorkout && (
+                              <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="summary"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="space-y-8"
+                >
+                  {logs[selectedDate] ? (
+                    Object.entries(logs[selectedDate]).map(([workoutId, workoutLog]) => {
+                      const totalWeight = calculateTotalWeight(workoutLog);
+                      const prevWeight = getPreviousWorkoutWeight(workoutId, selectedDate);
+                      const diff = prevWeight !== null ? totalWeight - prevWeight : null;
+                      const workoutName = PPL_PROGRAM.find(p => p.id === workoutId)?.name || 'Unknown Workout';
+
+                      return (
+                        <div key={workoutId} className="glass-card rounded-[2.5rem] p-8">
+                          <div className="mb-8">
+                            {(() => {
+                              const match = workoutName.match(/^(.*?)\s*(\(.*\))$/);
+                              const title = match ? match[1] : workoutName;
+                              const focus = match ? match[2] : '';
+                              return (
+                                <>
+                                  <h3 className="font-display font-black text-emerald-500 uppercase tracking-tighter text-2xl leading-tight text-left">
+                                    {title}
+                                  </h3>
+                                  {focus && <p className="text-sm font-display font-semibold text-zinc-500 tracking-tight leading-none text-left mt-1">{focus}</p>}
+                                </>
+                              );
+                            })()}
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mt-4">
+                              {format(parseISO(selectedDate), 'EEEE, MMMM do')}
+                            </p>
+                          </div>
+
+                          <div className="space-y-6">
+                            {Object.entries(workoutLog)
+                              .filter(([key]) => key !== 'exerciseOrder')
+                              .map(([exName, exLog]) => (
+                                <div key={exName} className="space-y-3">
+                                  <h4 className="text-xs font-black text-[#1a1a1a] uppercase tracking-widest">{exName}</h4>
+                                  <div className="grid grid-cols-1 gap-2">
+                                    {exLog.sets.map((set: SetLog, idx: number) => (
+                                      <div key={idx} className="flex items-center justify-between glass-inset p-4 rounded-2xl">
+                                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Set {idx + 1}</span>
+                                        <div className="flex gap-4">
+                                          <span className="text-xs font-black font-mono text-[#1a1a1a]">{set.weight || '0'} {settings.weightUnit}</span>
+                                          <span className="text-xs font-black font-mono text-zinc-400">×</span>
+                                          <span className="text-xs font-black font-mono text-[#1a1a1a]">{set.reps || '0'} reps</span>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              ))}
+                          </div>
+
+                          <div className="mt-12 pt-8 border-t border-black/5 flex flex-col items-center gap-4">
+                            <div className="text-center">
+                              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-2">Total Volume</p>
+                              <p className="text-4xl font-display font-black text-[#1a1a1a]">{totalWeight.toLocaleString()} <span className="text-lg text-zinc-400">{settings.weightUnit}</span></p>
+                            </div>
+                            
+                            {diff !== null && (
+                              <div className={`flex items-center gap-2 px-4 py-2 rounded-full font-display font-black text-[10px] uppercase tracking-widest ${diff >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                {diff >= 0 ? '+' : ''}{diff.toLocaleString()} {settings.weightUnit}
+                                <span className="opacity-50">vs previous</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="text-center py-40 text-zinc-300">
+                      <Target className="w-20 h-20 mx-auto mb-6 opacity-20" />
+                      <p className="font-display font-bold uppercase tracking-[0.3em] text-[10px]">No data for this date</p>
+                    </div>
+                  )}
+
+                  <div className="mt-12">
+                    <button 
+                      onClick={scrollToTop}
+                      className="w-full py-6 glass-button rounded-3xl text-emerald-500 font-display font-bold text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 transition-all"
+                    >
+                      <ArrowUp className="w-4 h-4" />
+                      Back to Top
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         )}
 
