@@ -356,6 +356,24 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const deleteWorkout = (date: string, workoutId: string) => {
+    setLogs(prev => {
+      const newLogs = { ...prev };
+      if (newLogs[date]) {
+        const updatedDateLog = { ...newLogs[date] };
+        delete updatedDateLog[workoutId];
+        
+        if (Object.keys(updatedDateLog).length === 0) {
+          delete newLogs[date];
+          setSelectedDate(null);
+        } else {
+          newLogs[date] = updatedDateLog;
+        }
+      }
+      return newLogs;
+    });
+  };
+
   return (
     <div className="min-h-screen selection:bg-emerald-500/30 font-sans text-[#1a1a1a]">
       <AnimatePresence mode="wait">
@@ -607,61 +625,79 @@ export default function App() {
                       const workoutName = PPL_PROGRAM.find(p => p.id === workoutId)?.name || 'Unknown Workout';
 
                       return (
-                        <div key={workoutId} className="glass-card rounded-[2.5rem] p-8">
-                          <div className="mb-8">
-                            {(() => {
-                              const match = workoutName.match(/^(.*?)\s*(\(.*\))$/);
-                              const title = match ? match[1] : workoutName;
-                              const focus = match ? match[2] : '';
-                              return (
-                                <>
-                                  <h3 className="font-display font-black text-emerald-500 uppercase tracking-tighter text-2xl leading-tight text-left">
-                                    {title}
-                                  </h3>
-                                  {focus && <p className="text-sm font-display font-semibold text-zinc-500 tracking-tight leading-none text-left mt-1">{focus}</p>}
-                                </>
-                              );
-                            })()}
-                            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mt-4">
-                              {format(parseISO(selectedDate), 'EEEE, MMMM do')}
-                            </p>
+                        <div key={workoutId} className="relative overflow-hidden rounded-[2.5rem]">
+                          {/* Delete Action (Behind) */}
+                          <div className="absolute inset-y-0 right-0 w-32 bg-red-500 rounded-r-[2.5rem] flex justify-end">
+                            <button 
+                              onClick={() => deleteWorkout(selectedDate!, workoutId)}
+                              className="w-20 h-full flex flex-col items-center justify-center text-white gap-1"
+                            >
+                              <Trash2 className="w-5 h-5" />
+                              <span className="text-[8px] font-black uppercase tracking-widest">Delete</span>
+                            </button>
                           </div>
 
-                          <div className="space-y-6">
-                            {Object.entries(workoutLog)
-                              .filter(([key]) => key !== 'exerciseOrder')
-                              .map(([exName, exLog]) => (
-                                <div key={exName} className="space-y-3">
-                                  <h4 className="text-xs font-black text-[#1a1a1a] uppercase tracking-widest">{exName}</h4>
-                                  <div className="grid grid-cols-1 gap-2">
-                                    {exLog.sets.map((set: SetLog, idx: number) => (
-                                      <div key={idx} className="flex items-center justify-between glass-inset p-4 rounded-2xl">
-                                        <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Set {idx + 1}</span>
-                                        <div className="flex gap-4">
-                                          <span className="text-xs font-black font-mono text-[#1a1a1a]">{set.weight || '0'} {settings.weightUnit}</span>
-                                          <span className="text-xs font-black font-mono text-zinc-400">×</span>
-                                          <span className="text-xs font-black font-mono text-[#1a1a1a]">{set.reps || '0'} reps</span>
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              ))}
-                          </div>
-
-                          <div className="mt-12 pt-8 border-t border-black/5 flex flex-col items-center gap-4">
-                            <div className="text-center">
-                              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-2">Total Volume</p>
-                              <p className="text-4xl font-display font-black text-[#1a1a1a]">{totalWeight.toLocaleString()} <span className="text-lg text-zinc-400">{settings.weightUnit}</span></p>
+                          <motion.div 
+                            drag="x"
+                            dragConstraints={{ left: -80, right: 0 }}
+                            dragElastic={0.1}
+                            className="glass-card rounded-[2.5rem] p-8 relative z-10 bg-[#f5f5f5]"
+                          >
+                            <div className="mb-8">
+                              {(() => {
+                                const match = workoutName.match(/^(.*?)\s*(\(.*\))$/);
+                                const title = match ? match[1] : workoutName;
+                                const focus = match ? match[2] : '';
+                                return (
+                                  <>
+                                    <h3 className="font-display font-black text-emerald-500 uppercase tracking-tighter text-2xl leading-tight text-left">
+                                      {title}
+                                    </h3>
+                                    {focus && <p className="text-sm font-display font-semibold text-zinc-500 tracking-tight leading-none text-left mt-1">{focus}</p>}
+                                  </>
+                                );
+                              })()}
+                              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mt-4">
+                                {format(parseISO(selectedDate), 'EEEE, MMMM do')}
+                              </p>
                             </div>
-                            
-                            {diff !== null && (
-                              <div className={`flex items-center gap-2 px-4 py-2 rounded-full font-display font-black text-[10px] uppercase tracking-widest ${diff >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
-                                {diff >= 0 ? '+' : ''}{diff.toLocaleString()} {settings.weightUnit}
-                                <span className="opacity-50">vs previous</span>
+
+                            <div className="space-y-6">
+                              {Object.entries(workoutLog)
+                                .filter(([key]) => key !== 'exerciseOrder')
+                                .map(([exName, exLog]) => (
+                                  <div key={exName} className="space-y-3">
+                                    <h4 className="text-xs font-black text-[#1a1a1a] uppercase tracking-widest">{exName}</h4>
+                                    <div className="grid grid-cols-1 gap-2">
+                                      {exLog.sets.map((set: SetLog, idx: number) => (
+                                        <div key={idx} className="flex items-center justify-between glass-inset p-4 rounded-2xl">
+                                          <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Set {idx + 1}</span>
+                                          <div className="flex gap-4">
+                                            <span className="text-xs font-black font-mono text-[#1a1a1a]">{set.weight || '0'} {settings.weightUnit}</span>
+                                            <span className="text-xs font-black font-mono text-zinc-400">×</span>
+                                            <span className="text-xs font-black font-mono text-[#1a1a1a]">{set.reps || '0'} reps</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                ))}
+                            </div>
+
+                            <div className="mt-12 pt-8 border-t border-black/5 flex flex-col items-center gap-4">
+                              <div className="text-center">
+                                <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] mb-2">Total Volume</p>
+                                <p className="text-4xl font-display font-black text-[#1a1a1a]">{totalWeight.toLocaleString()} <span className="text-lg text-zinc-400">{settings.weightUnit}</span></p>
                               </div>
-                            )}
-                          </div>
+                              
+                              {diff !== null && (
+                                <div className={`flex items-center gap-2 px-4 py-2 rounded-full font-display font-black text-[10px] uppercase tracking-widest ${diff >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                  {diff >= 0 ? '+' : ''}{diff.toLocaleString()} {settings.weightUnit}
+                                  <span className="opacity-50">vs previous</span>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
                         </div>
                       );
                     })
