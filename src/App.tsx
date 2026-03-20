@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   ChevronLeft, 
   ChevronRight, 
@@ -24,7 +24,13 @@ import {
   GripVertical,
   Calendar as CalendarIcon,
   ArrowLeft,
-  TrendingUp
+  TrendingUp,
+  Layout,
+  Plus,
+  Minus,
+  Download,
+  Upload,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'motion/react';
 import { 
@@ -50,12 +56,14 @@ import {
   isToday,
   parseISO
 } from 'date-fns';
-import { PPL_PROGRAM } from './data/program';
-import { DailyLog, WorkoutLog, SetLog, Exercise } from './types';
+import { PPL_PROGRAMME } from './data/programme';
+import { DailyLog, WorkoutLog, SetLog, Exercise, WorkoutDay, SavedTemplate } from './types';
 
 const STORAGE_KEY = 'ppl_pro_logs';
 const DAY_INDEX_KEY = 'ppl_pro_day_index';
 const SETTINGS_KEY = 'ppl_pro_settings';
+const PROGRAMME_KEY = 'ppl_pro_custom_programme';
+const SAVED_TEMPLATES_KEY = 'ppl_pro_saved_templates';
 
 function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updateSet, updateVariation, addSet, removeSet, onReorder, onOpenInput }: any) {
   const controls = useDragControls();
@@ -82,9 +90,37 @@ function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updat
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'workout' | 'history' | 'settings'>('workout');
+  const [activeTab, setActiveTab] = useState<'workout' | 'template' | 'history' | 'settings'>('workout');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [programme, setProgramme] = useState<WorkoutDay[]>(() => {
+    const saved = localStorage.getItem(PROGRAMME_KEY) || localStorage.getItem('ppl_pro_custom_program');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch (e) {}
+    }
+    return PPL_PROGRAMME;
+  });
+  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>(() => {
+    const saved = localStorage.getItem(SAVED_TEMPLATES_KEY);
+    const defaultTemplates = [
+      { id: 'default-ppl', name: 'Default PPL Programme', programme: PPL_PROGRAMME, isDefault: true }
+    ];
+    if (!saved) return defaultTemplates;
+    
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        return parsed.map((tpl: any) => ({
+          ...tpl,
+          programme: tpl.programme || tpl.program || []
+        }));
+      }
+    } catch (e) {}
+    return defaultTemplates;
+  });
   const [activeDayIndex, setActiveDayIndex] = useState(() => {
     const saved = localStorage.getItem(DAY_INDEX_KEY);
     return saved ? parseInt(saved, 10) : 0;
@@ -121,7 +157,7 @@ export default function App() {
   } | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
-  const currentDay = PPL_PROGRAM[activeDayIndex];
+  const currentDay = programme[activeDayIndex];
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
@@ -134,6 +170,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
   }, [settings]);
+
+  useEffect(() => {
+    localStorage.setItem(PROGRAMME_KEY, JSON.stringify(programme));
+  }, [programme]);
+
+  useEffect(() => {
+    localStorage.setItem(SAVED_TEMPLATES_KEY, JSON.stringify(savedTemplates));
+  }, [savedTemplates]);
 
   // Timer Logic
   useEffect(() => {
@@ -235,6 +279,7 @@ export default function App() {
   };
 
   const updateExerciseOrder = (newOrder: string[]) => {
+    if (!currentDay) return;
     setLogs(prev => {
       const newLogs = { ...prev };
       if (!newLogs[today]) newLogs[today] = {};
@@ -246,6 +291,7 @@ export default function App() {
   };
 
   const updateNotes = (notes: string) => {
+    if (!currentDay) return;
     setLogs(prev => {
       const newLogs = { ...prev };
       if (!newLogs[today]) newLogs[today] = {};
@@ -257,10 +303,12 @@ export default function App() {
   };
 
   const getExerciseLog = (exerciseName: string) => {
+    if (!currentDay) return undefined;
     return logs[today]?.[currentDay.id]?.[exerciseName];
   };
 
   const currentDayExercises = useMemo(() => {
+    if (!currentDay) return [];
     const sessionOrder = logs[today]?.[currentDay.id]?.exerciseOrder;
     if (sessionOrder) {
       return sessionOrder
@@ -271,6 +319,7 @@ export default function App() {
   }, [logs, today, currentDay]);
 
   const workoutProgress = useMemo(() => {
+    if (!currentDay) return 0;
     const dayLog = logs[today]?.[currentDay.id];
     if (!dayLog) return 0;
     
@@ -289,6 +338,7 @@ export default function App() {
   }, [logs, today, currentDay]);
 
   const getPreviousWorkoutData = useMemo(() => {
+    if (!currentDay) return null;
     const sortedDates = Object.keys(logs)
       .filter(d => d < today)
       .sort((a, b) => b.localeCompare(a));
@@ -332,6 +382,14 @@ export default function App() {
     return null;
   };
 
+  const updateProgramme = (newProgramme: WorkoutDay[]) => {
+    setProgramme(newProgramme);
+    // Ensure activeDayIndex is still valid
+    if (activeDayIndex >= newProgramme.length) {
+      setActiveDayIndex(0);
+    }
+  };
+
   const chartData = useMemo(() => {
     const data = Object.entries(logs)
       .map(([date, workoutLogs]) => {
@@ -352,6 +410,35 @@ export default function App() {
     // If we have data, add a few empty points at the start/end for better visualization if needed
     // or just return the data
     return data;
+  }, [logs]);
+
+  const cycleStatus = useMemo(() => {
+    const status = programme.map(day => ({
+      id: day.id,
+      label: day.id.replace('legs', 'leg').replace('-', ' '),
+      tracked: false
+    }));
+
+    // Get all workout events sorted by date ascending
+    const allLogs = Object.entries(logs)
+      .flatMap(([date, dayLogs]) => 
+        Object.keys(dayLogs).map(workoutId => ({ date, workoutId }))
+      )
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // Group into cycles: a cycle resets after 6 unique sessions are completed
+    let currentCycle = new Set<string>();
+    for (const log of allLogs) {
+      if (currentCycle.size === 6) {
+        currentCycle = new Set<string>();
+      }
+      currentCycle.add(log.workoutId);
+    }
+
+    return status.map(s => ({
+      ...s,
+      tracked: currentCycle.has(s.id)
+    }));
   }, [logs]);
 
   const CustomTooltip = ({ active, payload }: any) => {
@@ -443,7 +530,8 @@ export default function App() {
   };
 
   const finishWorkout = () => {
-    setActiveDayIndex(prev => (prev + 1) % PPL_PROGRAM.length);
+    if (programme.length === 0) return;
+    setActiveDayIndex(prev => (prev + 1) % programme.length);
     setActiveTab('workout');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -477,11 +565,25 @@ export default function App() {
             exit={{ opacity: 0, y: -10 }}
             className={`pb-40 transition-all duration-500 ${activeInput ? 'pb-[450px]' : ''}`}
           >
-            {/* Header */}
+            {!currentDay ? (
+              <div className="min-h-screen flex items-center justify-center p-6 text-center">
+                <div className="glass-card p-8 rounded-3xl">
+                  <p className="text-zinc-400 text-sm font-bold uppercase tracking-widest mb-4">No Programme Selected</p>
+                  <button 
+                    onClick={() => setActiveTab('template')}
+                    className="bg-emerald-500 text-white px-8 py-4 rounded-2xl font-display font-black uppercase tracking-widest"
+                  >
+                    Go to Programmes
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Header */}
             <header className="px-6 py-8 flex justify-between items-center sticky top-0 bg-white/40 backdrop-blur-2xl z-20 border-b border-white/50 transition-colors">
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-display font-extrabold tracking-tighter uppercase text-[#1a1a1a]">PPL Log</h1>
+                  <h1 className="text-xl font-display font-extrabold tracking-tighter uppercase text-[#1a1a1a]">REP ARCHIVE</h1>
                 </div>
                 <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-[0.3em] mt-1.5">
                   {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
@@ -509,6 +611,26 @@ export default function App() {
 
             {/* Workout Content */}
             <main className="p-6 max-w-2xl mx-auto">
+              {/* Cycle Status Indicators */}
+              <div className="flex justify-between items-center px-4 mb-8 mt-4 bg-white/40 backdrop-blur-md rounded-3xl p-4 border border-white/60 shadow-sm">
+                {cycleStatus.map((s) => (
+                  <div key={s.id} className="flex flex-col items-center gap-1.5 flex-1">
+                    <motion.div 
+                      initial={false}
+                      animate={{ 
+                        backgroundColor: s.tracked ? '#10b981' : '#ef4444',
+                        scale: s.tracked ? [1, 1.1, 1] : 1,
+                        boxShadow: s.tracked ? '0 0 10px rgba(16,185,129,0.3)' : '0 0 10px rgba(239,68,68,0.1)'
+                      }}
+                      className="w-2.5 h-2.5 rounded-full"
+                    />
+                    <span className={`text-[7px] font-black uppercase tracking-tighter ${s.tracked ? 'text-emerald-600' : 'text-zinc-400'}`}>
+                      {s.label}
+                    </span>
+                  </div>
+                ))}
+              </div>
+
               <div className="flex items-end justify-between mb-12 mt-6">
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-emerald-500 mb-2">
@@ -536,9 +658,9 @@ export default function App() {
                     <ChevronLeft className="w-5 h-5 text-zinc-400" />
                   </button>
                   <button 
-                    onClick={() => setActiveDayIndex(prev => Math.min(PPL_PROGRAM.length - 1, prev + 1))} 
+                    onClick={() => setActiveDayIndex(prev => Math.min(programme.length - 1, prev + 1))} 
                     className="glass-button p-4 rounded-2xl disabled:opacity-20"
-                    disabled={activeDayIndex === PPL_PROGRAM.length - 1}
+                    disabled={activeDayIndex === programme.length - 1}
                   >
                     <ChevronRight className="w-5 h-5 text-zinc-400" />
                   </button>
@@ -632,7 +754,32 @@ export default function App() {
                 </button>
               </div>
             </main>
-          </motion.div>
+          </>
+        )}
+      </motion.div>
+    )}
+
+        {activeTab === 'template' && (
+          <TemplateEditor 
+            currentProgramme={programme}
+            savedTemplates={savedTemplates}
+            onApplyTemplate={(tpl) => {
+              setProgramme(tpl.programme);
+              setActiveTab('workout');
+            }}
+            onSaveTemplate={(tpl) => {
+              setSavedTemplates(prev => {
+                const exists = prev.find(t => t.id === tpl.id);
+                if (exists) {
+                  return prev.map(t => t.id === tpl.id ? tpl : t);
+                }
+                return [...prev, tpl];
+              });
+            }}
+            onDeleteTemplate={(id) => {
+              setSavedTemplates(prev => prev.filter(t => t.id !== id));
+            }}
+          />
         )}
 
         {activeTab === 'history' && (
@@ -644,11 +791,8 @@ export default function App() {
             className="p-8 pb-40"
           >
             <div className="flex items-center justify-between mb-12">
-              <div className="flex items-center gap-4">
-                <div className="glass-panel p-3 rounded-2xl">
-                  <HistoryIcon className="w-6 h-6 text-emerald-500" />
-                </div>
-                <h1 className="text-2xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">History</h1>
+              <div className="flex items-center">
+                <h1 className="text-xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">History</h1>
               </div>
               <div className="flex gap-2">
                 {!selectedDate && (
@@ -844,7 +988,7 @@ export default function App() {
                       const totalWeight = calculateTotalWeight(workoutLog);
                       const prevWeight = getPreviousWorkoutWeight(workoutId, selectedDate);
                       const diff = prevWeight !== null ? totalWeight - prevWeight : null;
-                      const workoutName = PPL_PROGRAM.find(p => p.id === workoutId)?.name || 'Unknown Workout';
+                      const workoutName = programme.find(p => p.id === workoutId)?.name || 'Unknown Workout';
 
                       return (
                         <div key={workoutId} className="relative overflow-hidden rounded-[2.5rem]">
@@ -967,11 +1111,8 @@ export default function App() {
             exit={{ opacity: 0, scale: 0.95 }}
             className="p-8 pb-40"
           >
-            <div className="flex items-center gap-4 mb-12">
-              <div className="glass-panel p-3 rounded-2xl">
-                <Settings className="w-6 h-6 text-emerald-500" />
-              </div>
-              <h1 className="text-4xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">Settings</h1>
+            <div className="flex items-center mb-12">
+              <h1 className="text-xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">Settings</h1>
             </div>
 
             <div className="space-y-10">
@@ -1038,27 +1179,34 @@ export default function App() {
       </AnimatePresence>
 
       {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/40 backdrop-blur-3xl border-t border-white/50 px-10 py-10 flex justify-around items-center z-30 transition-colors">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/40 backdrop-blur-3xl border-t border-white/50 px-6 py-6 flex justify-around items-center z-30 transition-colors">
         <button 
           onClick={() => setActiveTab('workout')}
           className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'workout' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
         >
-          <Dumbbell className={`w-7 h-7 ${activeTab === 'workout' ? 'fill-emerald-500/10' : ''}`} />
-          <span className="text-[9px] font-black uppercase tracking-[0.2em]">Training</span>
+          <Dumbbell className={`w-5 h-5 ${activeTab === 'workout' ? 'fill-emerald-500/10' : ''}`} />
+          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">Training</span>
+        </button>
+        <button 
+          onClick={() => setActiveTab('template')}
+          className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'template' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
+        >
+          <Layout className={`w-5 h-5 ${activeTab === 'template' ? 'fill-emerald-500/10' : ''}`} />
+          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">Programme</span>
         </button>
         <button 
           onClick={() => setActiveTab('history')}
           className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'history' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
         >
-          <HistoryIcon className="w-7 h-7" />
-          <span className="text-[9px] font-black uppercase tracking-[0.2em]">History</span>
+          <HistoryIcon className="w-5 h-5" />
+          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">History</span>
         </button>
         <button 
           onClick={() => setActiveTab('settings')}
           className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'settings' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
         >
-          <Settings className="w-7 h-7" />
-          <span className="text-[9px] font-black uppercase tracking-[0.2em]">Config</span>
+          <Settings className="w-5 h-5" />
+          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">Config</span>
         </button>
       </nav>
 
@@ -1149,7 +1297,7 @@ export default function App() {
               placeholder={activeInput.placeholder}
               onUpdate={(val: string) => setActiveInput({ ...activeInput, value: val })}
               onDone={() => {
-                const exercise = currentDay.exercises.find(e => e.name === activeInput.exerciseName);
+                const exercise = currentDay?.exercises.find(e => e.name === activeInput.exerciseName);
                 if (exercise) {
                   const finalValue = activeInput.value || activeInput.placeholder;
                   updateSet(exercise, activeInput.setIndex, activeInput.field, finalValue);
@@ -1161,6 +1309,419 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+  );
+}
+
+function TemplateEditor({ 
+  currentProgramme, 
+  savedTemplates, 
+  onApplyTemplate, 
+  onSaveTemplate, 
+  onDeleteTemplate 
+}: { 
+  currentProgramme: WorkoutDay[], 
+  savedTemplates: SavedTemplate[], 
+  onApplyTemplate: (tpl: SavedTemplate) => void, 
+  onSaveTemplate: (tpl: SavedTemplate) => void, 
+  onDeleteTemplate: (id: string) => void 
+}) {
+  const [view, setView] = useState<'summary' | 'edit'>('summary');
+  const [editingTemplate, setEditingTemplate] = useState<SavedTemplate | null>(null);
+  const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const toggleDay = (id: string) => {
+    const newSet = new Set(expandedDays);
+    if (newSet.has(id)) newSet.delete(id);
+    else newSet.add(id);
+    setExpandedDays(newSet);
+  };
+
+  const handleExport = (tpl: SavedTemplate) => {
+    const data = JSON.stringify(tpl, null, 2);
+    const blob = new Blob([data], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${tpl.name.replace(/\s+/g, '_')}_template.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const tpl = JSON.parse(event.target?.result as string);
+        if (tpl.name && tpl.programme && Array.isArray(tpl.programme)) {
+          const newTpl = { ...tpl, id: `tpl-${Date.now()}`, isDefault: false };
+          onSaveTemplate(newTpl);
+        } else {
+          alert('Invalid template file format.');
+        }
+      } catch (err) {
+        alert('Error parsing template file.');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
+  const startNewTemplate = () => {
+    const newTpl: SavedTemplate = {
+      id: `tpl-${Date.now()}`,
+      name: 'New Custom Programme',
+      programme: [
+        { id: `day-${Date.now()}-1`, name: 'Push Day', exercises: [] },
+        { id: `day-${Date.now()}-2`, name: 'Pull Day', exercises: [] },
+        { id: `day-${Date.now()}-3`, name: 'Leg Day', exercises: [] }
+      ]
+    };
+    setEditingTemplate(newTpl);
+    setView('edit');
+  };
+
+  const editExisting = (tpl: SavedTemplate) => {
+    setEditingTemplate(JSON.parse(JSON.stringify(tpl))); // Deep clone
+    setView('edit');
+  };
+
+  const handleUpdateDayName = (dayIdx: number, name: string) => {
+    if (!editingTemplate) return;
+    const newProgramme = [...editingTemplate.programme];
+    newProgramme[dayIdx] = { ...newProgramme[dayIdx], name };
+    setEditingTemplate({ ...editingTemplate, programme: newProgramme });
+  };
+
+  const handleUpdateExercise = (dayIdx: number, exIdx: number, field: keyof Exercise, value: any) => {
+    if (!editingTemplate) return;
+    const newProgramme = [...editingTemplate.programme];
+    const newExercises = [...newProgramme[dayIdx].exercises];
+    newExercises[exIdx] = { ...newExercises[exIdx], [field]: value };
+    newProgramme[dayIdx] = { ...newProgramme[dayIdx], exercises: newExercises };
+    setEditingTemplate({ ...editingTemplate, programme: newProgramme });
+  };
+
+  const handleAddExercise = (dayIdx: number) => {
+    if (!editingTemplate) return;
+    const newProgramme = [...editingTemplate.programme];
+    const newExercises = [...newProgramme[dayIdx].exercises, { name: 'New Exercise', sets: 3, reps: '10-12', options: [], bodyPart: 'upper' }];
+    newProgramme[dayIdx] = { ...newProgramme[dayIdx], exercises: newExercises };
+    setEditingTemplate({ ...editingTemplate, programme: newProgramme });
+  };
+
+  const handleRemoveExercise = (dayIdx: number, exIdx: number) => {
+    if (!editingTemplate) return;
+    const newProgramme = [...editingTemplate.programme];
+    const newExercises = newProgramme[dayIdx].exercises.filter((_, i) => i !== exIdx);
+    newProgramme[dayIdx] = { ...newProgramme[dayIdx], exercises: newExercises };
+    setEditingTemplate({ ...editingTemplate, programme: newProgramme });
+  };
+
+  const handleAddDay = () => {
+    if (!editingTemplate) return;
+    if (editingTemplate.programme.length < 6) {
+      const newDay: WorkoutDay = {
+        id: `custom-${Date.now()}`,
+        name: `Day ${editingTemplate.programme.length + 1}`,
+        exercises: []
+      };
+      setEditingTemplate({ ...editingTemplate, programme: [...editingTemplate.programme, newDay] });
+    }
+  };
+
+  const handleRemoveDay = (dayIdx: number) => {
+    if (!editingTemplate) return;
+    setEditingTemplate({ ...editingTemplate, programme: editingTemplate.programme.filter((_, i) => i !== dayIdx) });
+  };
+
+  if (view === 'summary') {
+    return (
+      <motion.div
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -20 }}
+        className="px-4 py-8 pb-40 max-w-2xl mx-auto overflow-x-hidden"
+      >
+        <div className="flex items-center justify-between mb-12 gap-4">
+          <div className="flex items-center">
+            <h1 className="text-xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">Programmes</h1>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              onChange={handleImport} 
+              accept=".json" 
+              className="hidden" 
+            />
+            <button 
+              onClick={() => fileInputRef.current?.click()}
+              className="glass-button p-3 rounded-2xl text-emerald-500 active:scale-95 transition-all"
+            >
+              <Download className="w-5 h-5" />
+            </button>
+            <button 
+              onClick={startNewTemplate}
+              className="bg-emerald-500 text-white p-3 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center"
+            >
+              <Plus className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-6">
+          {savedTemplates.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0)).map((tpl) => (
+            <div key={tpl.id} className="relative overflow-hidden rounded-[2.5rem]">
+              {/* Actions (Behind) */}
+              {!tpl.isDefault && (
+                <div className="absolute inset-y-0 right-0 w-32 rounded-r-[2.5rem] flex flex-col overflow-hidden">
+                  <button 
+                    onClick={() => handleExport(tpl)}
+                    className="flex-1 w-full flex flex-col items-center justify-center text-white bg-emerald-400 border-b border-white/10"
+                  >
+                    <ExternalLink className="w-5 h-5" />
+                    <span className="text-[8px] font-black uppercase tracking-widest">Export</span>
+                  </button>
+                  <button 
+                    onClick={() => {
+                      if (confirm('Delete this template?')) onDeleteTemplate(tpl.id);
+                    }}
+                    className="flex-1 w-full flex flex-col items-center justify-center text-white bg-red-500"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    <span className="text-[8px] font-black uppercase tracking-widest">Delete</span>
+                  </button>
+                </div>
+              )}
+
+              <motion.div 
+                drag={!tpl.isDefault ? "x" : false}
+                dragConstraints={{ left: -80, right: 0 }}
+                dragElastic={0.1}
+                className="glass-card rounded-[2.5rem] p-8 space-y-6 relative z-10 bg-[#f5f5f5]"
+              >
+                {tpl.isDefault && (
+                  <div className="absolute top-0 right-0 bg-emerald-500 text-white px-4 py-1 rounded-bl-2xl text-[8px] font-black uppercase tracking-widest">
+                    Pinned
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-xl font-display font-black text-[#1a1a1a] uppercase tracking-tighter mb-2">{tpl.name}</h3>
+                  <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">
+                    {tpl.programme?.length || 0} Days • {tpl.programme?.reduce((acc, d) => acc + d.exercises.length, 0) || 0} Exercises
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <button 
+                    onClick={() => onApplyTemplate(tpl)}
+                    className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-md active:scale-95 transition-all"
+                  >
+                    Apply
+                  </button>
+                  <button 
+                    onClick={() => editExisting(tpl)}
+                    className="flex-1 py-4 glass-button rounded-2xl text-[10px] font-black uppercase tracking-widest text-[#1a1a1a] active:scale-95 transition-all"
+                  >
+                    Edit
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    );
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      exit={{ opacity: 0, x: -20 }}
+      className="p-8 pb-40 max-w-2xl mx-auto"
+    >
+      <div className="flex items-center justify-between mb-12">
+        <div className="flex items-center gap-4">
+          <button 
+            onClick={() => setView('summary')}
+            className="glass-button p-3 rounded-2xl"
+          >
+            <ArrowLeft className="w-5 h-5 text-zinc-400" />
+          </button>
+          <h1 className="text-2xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">Edit Programme</h1>
+        </div>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => editingTemplate && handleExport(editingTemplate)}
+            className="glass-button px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-emerald-500 active:scale-95 transition-all flex items-center gap-2"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Export
+          </button>
+          <button 
+            onClick={() => {
+              if (editingTemplate) {
+                onSaveTemplate(editingTemplate);
+                setView('summary');
+              }
+            }}
+            className="bg-emerald-500 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
+          >
+            Save
+          </button>
+        </div>
+      </div>
+
+      <div className="space-y-8">
+        <div className="glass-inset p-6 rounded-3xl space-y-2">
+          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400">Programme Name</p>
+          <input 
+            value={editingTemplate?.name || ''}
+            onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, name: e.target.value } : null)}
+            className="w-full bg-white/50 border border-zinc-200 rounded-2xl p-4 text-lg font-display font-black text-[#1a1a1a] outline-none focus:border-emerald-500 transition-all"
+            placeholder="Programme Name"
+          />
+        </div>
+
+        <div className="space-y-4">
+          {editingTemplate?.programme.map((day, dayIdx) => (
+            <div key={day.id} className="relative overflow-hidden rounded-[2.5rem]">
+              {/* Delete Action (Behind) */}
+              <div className="absolute inset-y-0 right-0 w-32 bg-red-500 rounded-r-[2.5rem] flex justify-end">
+                <button 
+                  onClick={() => handleRemoveDay(dayIdx)}
+                  className="w-20 h-full flex flex-col items-center justify-center text-white gap-1"
+                >
+                  <Trash2 className="w-5 h-5" />
+                  <span className="text-[8px] font-black uppercase tracking-widest">Delete</span>
+                </button>
+              </div>
+
+              <motion.div 
+                drag="x"
+                dragConstraints={{ left: -80, right: 0 }}
+                dragElastic={0.1}
+                className="glass-card rounded-[2.5rem] overflow-hidden relative z-10 bg-[#f5f5f5]"
+              >
+                <button 
+                  onClick={() => toggleDay(day.id)}
+                  className="w-full p-8 flex items-center justify-between hover:bg-black/5 transition-all"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`p-2 rounded-xl transition-all ${expandedDays.has(day.id) ? 'bg-emerald-500 text-white' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                      <Dumbbell className="w-5 h-5" />
+                    </div>
+                    <h3 className="text-xl font-display font-black text-[#1a1a1a] uppercase tracking-tighter">{day.name}</h3>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{day.exercises.length} Exercises</span>
+                    <ChevronDown className={`w-5 h-5 text-zinc-400 transition-transform duration-300 ${expandedDays.has(day.id) ? 'rotate-180' : ''}`} />
+                  </div>
+                </button>
+
+                <AnimatePresence>
+                  {expandedDays.has(day.id) && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: 'auto', opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="p-8 pt-0 space-y-8">
+                        <div className="h-px bg-zinc-100" />
+                        
+                        <div className="space-y-4">
+                          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400">Session Title</p>
+                          <div className="bg-white/50 border border-zinc-200 rounded-2xl p-4 flex items-center justify-between gap-4">
+                            <input 
+                              value={day.name}
+                              onChange={(e) => handleUpdateDayName(dayIdx, e.target.value)}
+                              className="bg-transparent border-none outline-none text-sm font-display font-black text-emerald-500 uppercase tracking-widest w-full"
+                            />
+                          </div>
+                        </div>
+
+                      <div className="space-y-6">
+                        {day.exercises.map((ex, exIdx) => (
+                          <div key={exIdx} className="glass-inset p-6 rounded-3xl space-y-6 border border-zinc-100">
+                            <div className="space-y-3">
+                              <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Exercise Name</p>
+                              <div className="bg-white/80 border border-zinc-200 rounded-2xl p-4 flex items-center justify-between gap-4">
+                                <input 
+                                  value={ex.name}
+                                  onChange={(e) => handleUpdateExercise(dayIdx, exIdx, 'name', e.target.value)}
+                                  className="bg-transparent border-none outline-none text-sm font-display font-black text-[#1a1a1a] uppercase tracking-widest w-full"
+                                  placeholder="Exercise Name"
+                                />
+                                <button 
+                                  onClick={() => handleRemoveExercise(dayIdx, exIdx)}
+                                  className="text-zinc-300 hover:text-red-500 transition-colors"
+                                >
+                                  <Minus className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-3">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Sets</p>
+                                <div className="bg-white/80 border border-zinc-200 rounded-2xl p-4">
+                                  <input 
+                                    type="number"
+                                    value={ex.sets}
+                                    onChange={(e) => handleUpdateExercise(dayIdx, exIdx, 'sets', parseInt(e.target.value) || 0)}
+                                    className="w-full bg-transparent border-none outline-none text-xs font-display font-black text-[#1a1a1a]"
+                                  />
+                                </div>
+                              </div>
+                              <div className="space-y-3">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Target Reps</p>
+                                <div className="bg-white/80 border border-zinc-200 rounded-2xl p-4">
+                                  <input 
+                                    value={ex.reps}
+                                    onChange={(e) => handleUpdateExercise(dayIdx, exIdx, 'reps', e.target.value)}
+                                    className="w-full bg-transparent border-none outline-none text-xs font-display font-black text-[#1a1a1a]"
+                                    placeholder="e.g. 8-12"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                        <button 
+                          onClick={() => handleAddExercise(dayIdx)}
+                          className="w-full py-5 border-2 border-dashed border-zinc-200 rounded-3xl text-zinc-400 font-display font-black text-[10px] uppercase tracking-widest hover:border-emerald-500/30 hover:text-emerald-500 transition-all flex items-center justify-center gap-2"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Exercise
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </motion.div>
+          </div>
+        ))}
+
+          {editingTemplate && editingTemplate.programme.length < 6 && (
+            <button 
+              onClick={handleAddDay}
+              className="w-full py-8 border-2 border-dashed border-emerald-500/20 rounded-[2.5rem] text-emerald-500/40 font-display font-black text-xs uppercase tracking-[0.3em] hover:bg-emerald-500/5 hover:text-emerald-500 hover:border-emerald-500/40 transition-all flex flex-col items-center gap-3"
+            >
+              <Plus className="w-6 h-6" />
+              Add Training Day
+            </button>
+          )}
+        </div>
+      </div>
+    </motion.div>
   );
 }
 

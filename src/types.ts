@@ -29,3 +29,10 @@ export interface DailyLog {
     [workoutId: string]: WorkoutLog;
   };
 }
+
+export interface SavedTemplate {
+  id: string;
+  name: string;
+  programme: WorkoutDay[];
+  isDefault?: boolean;
+}

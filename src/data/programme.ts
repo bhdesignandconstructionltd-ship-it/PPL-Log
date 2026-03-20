@@ -1,6 +1,6 @@
 import { WorkoutDay } from '../types';
 
-export const PPL_PROGRAM: WorkoutDay[] = [
+export const PPL_PROGRAMME: WorkoutDay[] = [
   {
     id: 'push-1',
     name: 'Push Day 1 (Chest Focus)',
