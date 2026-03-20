@@ -23,9 +23,20 @@ import {
   RotateCcw,
   GripVertical,
   Calendar as CalendarIcon,
-  ArrowLeft
+  ArrowLeft,
+  TrendingUp
 } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'motion/react';
+import { 
+  ResponsiveContainer, 
+  AreaChart, 
+  Area, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  ReferenceLine 
+} from 'recharts';
 import { 
   format, 
   startOfMonth, 
@@ -46,7 +57,7 @@ const STORAGE_KEY = 'ppl_pro_logs';
 const DAY_INDEX_KEY = 'ppl_pro_day_index';
 const SETTINGS_KEY = 'ppl_pro_settings';
 
-function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updateSet, updateVariation, addSet, removeSet, onReorder }: any) {
+function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updateSet, updateVariation, addSet, removeSet, onReorder, onOpenInput }: any) {
   const controls = useDragControls();
   return (
     <Reorder.Item 
@@ -64,6 +75,7 @@ function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updat
         onAddSet={() => addSet(ex)}
         onRemoveSet={() => removeSet(ex)}
         dragControls={controls}
+        onOpenInput={onOpenInput}
       />
     </Reorder.Item>
   );
@@ -81,6 +93,7 @@ export default function App() {
     const saved = localStorage.getItem(STORAGE_KEY);
     return saved ? JSON.parse(saved) : {};
   });
+  const [historyView, setHistoryView] = useState<'calendar' | 'progress'>('calendar');
 
   // Settings State
   const [settings, setSettings] = useState(() => {
@@ -96,6 +109,16 @@ export default function App() {
   const [timerSeconds, setTimerSeconds] = useState<number | null>(null);
   const [timerActive, setTimerActive] = useState(false);
   const [initialTimerSeconds, setInitialTimerSeconds] = useState(60);
+  const [timerEndTime, setTimerEndTime] = useState<number | null>(null);
+
+  // Input State
+  const [activeInput, setActiveInput] = useState<{
+    exerciseName: string;
+    setIndex: number;
+    field: 'weight' | 'reps';
+    value: string;
+    placeholder: string;
+  } | null>(null);
 
   const today = new Date().toISOString().split('T')[0];
   const currentDay = PPL_PROGRAM[activeDayIndex];
@@ -115,21 +138,24 @@ export default function App() {
   // Timer Logic
   useEffect(() => {
     let interval: any;
-    if (timerActive && timerSeconds !== null && timerSeconds > 0) {
+    if (timerActive && timerEndTime !== null) {
       interval = setInterval(() => {
-        setTimerSeconds(s => (s !== null ? s - 1 : null));
-      }, 1000);
-    } else if (timerSeconds === 0) {
-      setTimerActive(false);
-      // Optional: Add a sound or vibration here
+        const remaining = Math.max(0, Math.ceil((timerEndTime - Date.now()) / 1000));
+        setTimerSeconds(remaining);
+        if (remaining === 0) {
+          setTimerActive(false);
+          setTimerEndTime(null);
+        }
+      }, 200);
     }
     return () => clearInterval(interval);
-  }, [timerActive, timerSeconds]);
+  }, [timerActive, timerEndTime]);
 
   const startRestTimer = (exercise: Exercise) => {
     const seconds = exercise.bodyPart === 'lower' ? settings.restIntervalLower : settings.restIntervalUpper;
     setInitialTimerSeconds(seconds);
     setTimerSeconds(seconds);
+    setTimerEndTime(Date.now() + seconds * 1000);
     setTimerActive(true);
   };
 
@@ -142,10 +168,10 @@ export default function App() {
       
       const workoutLog = newLogs[today][currentDay.id];
       if (!workoutLog[exerciseName]) {
-        const prevVariation = getPreviousWorkoutData?.[exerciseName]?.variation;
+        const prevWorkoutData = getPreviousWorkoutData?.[exerciseName];
         workoutLog[exerciseName] = {
-          variation: prevVariation || currentDay.exercises.find(e => e.name === exerciseName)?.options[0] || '',
-          sets: Array(currentDay.exercises.find(e => e.name === exerciseName)?.sets || 0).fill(null).map(() => ({
+          variation: prevWorkoutData?.variation || currentDay.exercises.find(e => e.name === exerciseName)?.options[0] || '',
+          sets: Array(currentDay.exercises.find(e => e.name === exerciseName)?.sets || 0).fill(null).map((_, i) => ({
             weight: '',
             reps: '',
             completed: false
@@ -154,6 +180,22 @@ export default function App() {
       }
 
       const exerciseLog = workoutLog[exerciseName];
+      
+      // If marking as completed, check if we need to use placeholders
+      if (field === 'completed' && value === true) {
+        const currentSet = exerciseLog.sets[setIndex];
+        const prevWorkoutData = getPreviousWorkoutData?.[exerciseName];
+        
+        if (!currentSet.weight) {
+          const placeholderWeight = exerciseLog.sets[setIndex - 1]?.weight || prevWorkoutData?.sets[setIndex]?.weight || "0";
+          currentSet.weight = placeholderWeight;
+        }
+        if (!currentSet.reps) {
+          const placeholderReps = exerciseLog.sets[setIndex - 1]?.reps || prevWorkoutData?.sets[setIndex]?.reps || "0";
+          currentSet.reps = placeholderReps;
+        }
+      }
+
       exerciseLog.sets[setIndex] = {
         ...exerciseLog.sets[setIndex],
         [field]: value
@@ -199,6 +241,17 @@ export default function App() {
       if (!newLogs[today][currentDay.id]) newLogs[today][currentDay.id] = {};
       
       newLogs[today][currentDay.id].exerciseOrder = newOrder;
+      return newLogs;
+    });
+  };
+
+  const updateNotes = (notes: string) => {
+    setLogs(prev => {
+      const newLogs = { ...prev };
+      if (!newLogs[today]) newLogs[today] = {};
+      if (!newLogs[today][currentDay.id]) newLogs[today][currentDay.id] = {};
+      
+      newLogs[today][currentDay.id].notes = notes;
       return newLogs;
     });
   };
@@ -279,6 +332,44 @@ export default function App() {
     return null;
   };
 
+  const chartData = useMemo(() => {
+    const data = Object.entries(logs)
+      .map(([date, workoutLogs]) => {
+        let dailyVolume = 0;
+        Object.values(workoutLogs).forEach(workoutLog => {
+          if (typeof workoutLog === 'object' && workoutLog !== null) {
+            dailyVolume += calculateTotalWeight(workoutLog as any);
+          }
+        });
+        return {
+          date,
+          displayDate: format(parseISO(date), 'MMM d'),
+          volume: dailyVolume
+        };
+      })
+      .sort((a, b) => a.date.localeCompare(b.date));
+    
+    // If we have data, add a few empty points at the start/end for better visualization if needed
+    // or just return the data
+    return data;
+  }, [logs]);
+
+  const CustomTooltip = ({ active, payload }: any) => {
+    if (active && payload && payload.length) {
+      return (
+        <div className="glass-panel p-4 rounded-2xl border border-white/50 shadow-xl">
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">
+            {payload[0].payload.date}
+          </p>
+          <p className="text-lg font-display font-black text-emerald-500">
+            {payload[0].value.toLocaleString()} <span className="text-xs text-zinc-400">{settings.weightUnit}</span>
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   const daysInMonth = eachDayOfInterval({
     start: startOfWeek(startOfMonth(currentMonth)),
     end: endOfWeek(endOfMonth(currentMonth)),
@@ -288,6 +379,7 @@ export default function App() {
     const dateStr = format(date, 'yyyy-MM-dd');
     return logs[dateStr] && Object.keys(logs[dateStr]).length > 0;
   };
+
   const addSet = (exercise: Exercise) => {
     const exerciseName = exercise.name;
     setLogs(prev => {
@@ -375,7 +467,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen selection:bg-emerald-500/30 font-sans text-[#1a1a1a]">
+    <div className="min-h-screen selection:bg-emerald-500/30 font-sans text-[#1a1a1a] transition-colors duration-300">
       <AnimatePresence mode="wait">
         {activeTab === 'workout' && (
           <motion.div
@@ -383,10 +475,10 @@ export default function App() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="pb-40"
+            className={`pb-40 transition-all duration-500 ${activeInput ? 'pb-[450px]' : ''}`}
           >
             {/* Header */}
-            <header className="px-6 py-8 flex justify-between items-center sticky top-0 bg-white/40 backdrop-blur-2xl z-20 border-b border-white/50">
+            <header className="px-6 py-8 flex justify-between items-center sticky top-0 bg-white/40 backdrop-blur-2xl z-20 border-b border-white/50 transition-colors">
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-xl font-display font-extrabold tracking-tighter uppercase text-[#1a1a1a]">PPL Log</h1>
@@ -395,12 +487,14 @@ export default function App() {
                   {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
                 </p>
               </div>
-              <button 
-                onClick={() => setActiveTab('settings')}
-                className="glass-button p-3 rounded-2xl"
-              >
-                <Settings className="w-5 h-5 text-zinc-400" />
-              </button>
+              <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setActiveTab('settings')}
+                  className="glass-button p-3 rounded-2xl"
+                >
+                  <Settings className="w-5 h-5 text-zinc-400" />
+                </button>
+              </div>
             </header>
 
             {/* Progress Bar */}
@@ -483,9 +577,33 @@ export default function App() {
                     updateVariation={updateVariation}
                     addSet={addSet}
                     removeSet={removeSet}
+                    onOpenInput={(idx: number, field: 'weight' | 'reps', val: string, placeholder: string) => {
+                      setActiveInput({
+                        exerciseName: ex.name,
+                        setIndex: idx,
+                        field,
+                        value: val,
+                        placeholder
+                      });
+                    }}
                   />
                 ))}
               </Reorder.Group>
+
+              <div className="mt-12 glass-card rounded-[2.5rem] p-8 space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <div className="p-2 bg-emerald-500/10 rounded-xl">
+                    <Target className="w-5 h-5 text-emerald-500" />
+                  </div>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Session Notes</h3>
+                </div>
+                <textarea
+                  value={logs[today]?.[currentDay.id]?.notes || ''}
+                  onChange={(e) => updateNotes(e.target.value)}
+                  placeholder="Record your performance, feelings, or any details about this session..."
+                  className="w-full h-32 bg-transparent border-none outline-none text-sm font-display font-medium text-[#1a1a1a] placeholder:text-zinc-300 resize-none"
+                />
+              </div>
 
               <div className="mt-12">
                 <button 
@@ -528,87 +646,191 @@ export default function App() {
             <div className="flex items-center justify-between mb-12">
               <div className="flex items-center gap-4">
                 <div className="glass-panel p-3 rounded-2xl">
-                  <CalendarIcon className="w-6 h-6 text-emerald-500" />
+                  <HistoryIcon className="w-6 h-6 text-emerald-500" />
                 </div>
-                <h1 className="text-4xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">History</h1>
+                <h1 className="text-2xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">History</h1>
               </div>
-              {selectedDate && (
-                <button 
-                  onClick={() => setSelectedDate(null)}
-                  className="glass-button p-3 rounded-2xl text-emerald-500"
-                >
-                  <ArrowLeft className="w-5 h-5" />
-                </button>
-              )}
+              <div className="flex gap-2">
+                {!selectedDate && (
+                  <div className="flex glass-inset p-1 rounded-2xl">
+                    <button 
+                      onClick={() => setHistoryView('calendar')}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${historyView === 'calendar' ? 'bg-white text-emerald-500 shadow-sm' : 'text-zinc-400'}`}
+                    >
+                      <CalendarIcon className="w-4 h-4" />
+                    </button>
+                    <button 
+                      onClick={() => setHistoryView('progress')}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${historyView === 'progress' ? 'bg-white text-emerald-500 shadow-sm' : 'text-zinc-400'}`}
+                    >
+                      <TrendingUp className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
+                {selectedDate && (
+                  <button 
+                    onClick={() => setSelectedDate(null)}
+                    className="glass-button p-3 rounded-2xl text-emerald-500"
+                  >
+                    <ArrowLeft className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
             </div>
             
             <AnimatePresence mode="wait">
               {!selectedDate ? (
-                <motion.div
-                  key="calendar"
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  className="space-y-8"
-                >
-                  <div className="glass-card rounded-[2.5rem] p-8">
-                    <div className="flex items-center justify-between mb-8">
-                      <h3 className="font-display font-black text-[#1a1a1a] uppercase tracking-tighter text-xl">
-                        {format(currentMonth, 'MMMM yyyy')}
-                      </h3>
-                      <div className="flex gap-2">
-                        <button 
-                          onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
-                          className="glass-button p-2 rounded-xl"
-                        >
-                          <ChevronLeft className="w-5 h-5 text-zinc-400" />
-                        </button>
-                        <button 
-                          onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
-                          className="glass-button p-2 rounded-xl"
-                        >
-                          <ChevronRight className="w-5 h-5 text-zinc-400" />
-                        </button>
+                historyView === 'calendar' ? (
+                  <motion.div
+                    key="calendar"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="space-y-8"
+                  >
+                    <div className="glass-card rounded-[2.5rem] p-8">
+                      <div className="flex items-center justify-between mb-8">
+                        <h3 className="font-display font-black text-[#1a1a1a] uppercase tracking-tighter text-xl">
+                          {format(currentMonth, 'MMMM yyyy')}
+                        </h3>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={() => setCurrentMonth(subMonths(currentMonth, 1))}
+                            className="glass-button p-2 rounded-xl"
+                          >
+                            <ChevronLeft className="w-5 h-5 text-zinc-400" />
+                          </button>
+                          <button 
+                            onClick={() => setCurrentMonth(addMonths(currentMonth, 1))}
+                            className="glass-button p-2 rounded-xl"
+                          >
+                            <ChevronRight className="w-5 h-5 text-zinc-400" />
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-2 mb-4">
+                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
+                          <div key={i} className="text-center text-[10px] font-black text-zinc-300 uppercase tracking-widest py-2">
+                            {day}
+                          </div>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-7 gap-2">
+                        {daysInMonth.map((day, i) => {
+                          const dateStr = format(day, 'yyyy-MM-dd');
+                          const hasWorkout = hasWorkoutOnDate(day);
+                          const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
+                          const isTodayDate = isToday(day);
+
+                          return (
+                            <button
+                              key={i}
+                              onClick={() => hasWorkout && setSelectedDate(dateStr)}
+                              disabled={!hasWorkout && isCurrentMonth}
+                              className={`
+                                aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all relative
+                                ${!isCurrentMonth ? 'opacity-10 pointer-events-none' : ''}
+                                ${hasWorkout ? 'glass-button text-emerald-500 hover:scale-105 active:scale-95' : 'text-zinc-300'}
+                                ${isTodayDate ? 'ring-2 ring-emerald-500 ring-offset-4 ring-offset-[#f5f5f5]' : ''}
+                              `}
+                            >
+                              <span className="text-xs font-black font-mono">{format(day, 'd')}</span>
+                              {hasWorkout && (
+                                <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    key="progress"
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -10 }}
+                    className="space-y-8"
+                  >
+                    <div className="glass-card rounded-[2.5rem] p-8">
+                      <div className="mb-8">
+                        <h3 className="font-display font-black text-[#1a1a1a] uppercase tracking-tighter text-xl mb-2">
+                          Volume Progress
+                        </h3>
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
+                          Total weight lifted per session ({settings.weightUnit})
+                        </p>
+                      </div>
+
+                      <div className="h-[300px] w-full select-none" onContextMenu={(e) => e.preventDefault()}>
+                        {chartData.length > 0 ? (
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                              <defs>
+                                <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
+                                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
+                              <XAxis 
+                                dataKey="displayDate" 
+                                axisLine={false} 
+                                tickLine={false} 
+                                tick={{ fontSize: 10, fontWeight: 700, fill: '#9ca3af' }}
+                                dy={10}
+                              />
+                              <YAxis 
+                                axisLine={false} 
+                                tickLine={false} 
+                                tick={{ fontSize: 10, fontWeight: 700, fill: '#9ca3af' }}
+                              />
+                              <Tooltip content={<CustomTooltip />} />
+                              <Area 
+                                type="monotone" 
+                                dataKey="volume" 
+                                stroke="#10b981" 
+                                strokeWidth={4}
+                                fillOpacity={1} 
+                                fill="url(#colorVolume)" 
+                                animationDuration={1500}
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        ) : (
+                          <div className="h-full flex flex-col items-center justify-center text-zinc-300">
+                            <TrendingUp className="w-12 h-12 mb-4 opacity-20" />
+                            <p className="text-[10px] font-black uppercase tracking-widest">Insufficient data for chart</p>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-7 gap-2 mb-4">
-                      {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, i) => (
-                        <div key={i} className="text-center text-[10px] font-black text-zinc-300 uppercase tracking-widest py-2">
-                          {day}
-                        </div>
-                      ))}
+                    {/* Stats Summary */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="glass-card rounded-3xl p-6">
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Avg Volume</p>
+                        <p className="text-2xl font-display font-black text-[#1a1a1a]">
+                          {chartData.length > 0 
+                            ? Math.round(chartData.reduce((acc, curr) => acc + curr.volume, 0) / chartData.length).toLocaleString()
+                            : 0}
+                          <span className="text-xs text-zinc-400 ml-1">{settings.weightUnit}</span>
+                        </p>
+                      </div>
+                      <div className="glass-card rounded-3xl p-6">
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Max Volume</p>
+                        <p className="text-2xl font-display font-black text-emerald-500">
+                          {chartData.length > 0 
+                            ? Math.max(...chartData.map(d => d.volume)).toLocaleString()
+                            : 0}
+                          <span className="text-xs text-zinc-400 ml-1">{settings.weightUnit}</span>
+                        </p>
+                      </div>
                     </div>
-
-                    <div className="grid grid-cols-7 gap-2">
-                      {daysInMonth.map((day, i) => {
-                        const dateStr = format(day, 'yyyy-MM-dd');
-                        const hasWorkout = hasWorkoutOnDate(day);
-                        const isCurrentMonth = day.getMonth() === currentMonth.getMonth();
-                        const isTodayDate = isToday(day);
-
-                        return (
-                          <button
-                            key={i}
-                            onClick={() => hasWorkout && setSelectedDate(dateStr)}
-                            disabled={!hasWorkout && isCurrentMonth}
-                            className={`
-                              aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all relative
-                              ${!isCurrentMonth ? 'opacity-10 pointer-events-none' : ''}
-                              ${hasWorkout ? 'glass-button text-emerald-500 hover:scale-105 active:scale-95' : 'text-zinc-300'}
-                              ${isTodayDate ? 'ring-2 ring-emerald-500 ring-offset-4 ring-offset-[#f5f5f5]' : ''}
-                            `}
-                          >
-                            <span className="text-xs font-black font-mono">{format(day, 'd')}</span>
-                            {hasWorkout && (
-                              <div className="w-1 h-1 rounded-full bg-emerald-500" />
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </motion.div>
+                  </motion.div>
+                )
               ) : (
                 <motion.div
                   key="summary"
@@ -618,7 +840,7 @@ export default function App() {
                   className="space-y-8"
                 >
                   {logs[selectedDate] ? (
-                    Object.entries(logs[selectedDate]).map(([workoutId, workoutLog]) => {
+                    Object.entries(logs[selectedDate]).map(([workoutId, workoutLog]: [string, any]) => {
                       const totalWeight = calculateTotalWeight(workoutLog);
                       const prevWeight = getPreviousWorkoutWeight(workoutId, selectedDate);
                       const diff = prevWeight !== null ? totalWeight - prevWeight : null;
@@ -664,8 +886,8 @@ export default function App() {
 
                             <div className="space-y-6">
                               {Object.entries(workoutLog)
-                                .filter(([key]) => key !== 'exerciseOrder')
-                                .map(([exName, exLog]) => (
+                                .filter(([key]) => key !== 'exerciseOrder' && key !== 'notes')
+                                .map(([exName, exLog]: [string, any]) => (
                                   <div key={exName} className="space-y-3">
                                     <h4 className="text-xs font-black text-[#1a1a1a] uppercase tracking-widest">{exName}</h4>
                                     <div className="grid grid-cols-1 gap-2">
@@ -683,6 +905,20 @@ export default function App() {
                                   </div>
                                 ))}
                             </div>
+
+                            {workoutLog.notes && (
+                              <div className="mt-12 pt-8 border-t border-black/5">
+                                <div className="flex items-center gap-3 mb-4">
+                                  <div className="p-2 bg-emerald-500/10 rounded-xl">
+                                    <Target className="w-4 h-4 text-emerald-500" />
+                                  </div>
+                                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Session Notes</h3>
+                                </div>
+                                <p className="text-sm font-display font-medium text-[#1a1a1a] leading-relaxed whitespace-pre-wrap text-left">
+                                  {workoutLog.notes}
+                                </p>
+                              </div>
+                            )}
 
                             <div className="mt-12 pt-8 border-t border-black/5 flex flex-col items-center gap-4">
                               <div className="text-center">
@@ -802,7 +1038,7 @@ export default function App() {
       </AnimatePresence>
 
       {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/40 backdrop-blur-3xl border-t border-white/50 px-10 py-10 flex justify-around items-center z-30">
+      <nav className="fixed bottom-0 left-0 right-0 bg-white/40 backdrop-blur-3xl border-t border-white/50 px-10 py-10 flex justify-around items-center z-30 transition-colors">
         <button 
           onClick={() => setActiveTab('workout')}
           className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'workout' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
@@ -847,27 +1083,41 @@ export default function App() {
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => setTimerActive(!timerActive)}
-                  className="w-14 h-14 glass-button rounded-2xl flex items-center justify-center"
+                  onClick={() => {
+                    if (timerActive) {
+                      setTimerActive(false);
+                      setTimerEndTime(null);
+                    } else {
+                      const remaining = timerSeconds || initialTimerSeconds;
+                      setTimerEndTime(Date.now() + remaining * 1000);
+                      setTimerActive(true);
+                    }
+                  }}
+                  className="w-7 h-7 glass-button rounded-lg flex items-center justify-center"
                 >
-                  {timerActive ? <Pause className="w-6 h-6 text-zinc-400" /> : <Play className="w-6 h-6 text-zinc-400" />}
+                  {timerActive ? <Pause className="w-3 h-3 text-zinc-400" /> : <Play className="w-3 h-3 text-zinc-400" />}
                 </button>
                 <button 
-                  onClick={() => setTimerSeconds(initialTimerSeconds)}
-                  className="w-14 h-14 glass-button rounded-2xl flex items-center justify-center"
+                  onClick={() => {
+                    setTimerSeconds(initialTimerSeconds);
+                    setTimerEndTime(Date.now() + initialTimerSeconds * 1000);
+                    setTimerActive(true);
+                  }}
+                  className="w-7 h-7 glass-button rounded-lg flex items-center justify-center"
                 >
-                  <RotateCcw className="w-6 h-6 text-zinc-400" />
+                  <RotateCcw className="w-3 h-3 text-zinc-400" />
                 </button>
                 <button 
                   onClick={() => {
                     setTimerSeconds(null);
                     setTimerActive(false);
+                    setTimerEndTime(null);
                   }}
-                  className="w-14 h-14 glass-button rounded-2xl flex items-center justify-center"
+                  className="w-7 h-7 glass-button rounded-lg flex items-center justify-center"
                 >
-                  <X className="w-6 h-6 text-zinc-400" />
+                  <X className="w-3 h-3 text-zinc-400" />
                 </button>
               </div>
             </div>
@@ -883,7 +1133,88 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {activeInput && (
+          <>
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setActiveInput(null)}
+              className="fixed inset-0 bg-black/10 backdrop-blur-[2px] z-[55]"
+            />
+            <NumberPad 
+              value={activeInput.value}
+              placeholder={activeInput.placeholder}
+              onUpdate={(val: string) => setActiveInput({ ...activeInput, value: val })}
+              onDone={() => {
+                const exercise = currentDay.exercises.find(e => e.name === activeInput.exerciseName);
+                if (exercise) {
+                  const finalValue = activeInput.value || activeInput.placeholder;
+                  updateSet(exercise, activeInput.setIndex, activeInput.field, finalValue);
+                }
+                setActiveInput(null);
+              }}
+            />
+          </>
+        )}
+      </AnimatePresence>
     </div>
+  );
+}
+
+function NumberPad({ value, onUpdate, onDone, placeholder }: any) {
+  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0', '⌫'];
+  
+  const handleKey = (key: string) => {
+    if (key === '⌫') {
+      onUpdate(value.slice(0, -1));
+    } else if (key === '.') {
+      if (!value.includes('.')) onUpdate(value + key);
+    } else {
+      if (value.length < 6) onUpdate(value + key);
+    }
+  };
+
+  return (
+    <motion.div 
+      initial={{ y: '100%' }}
+      animate={{ y: 0 }}
+      exit={{ y: '100%' }}
+      transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+      className="fixed bottom-0 left-0 right-0 z-[60] bg-white/95 backdrop-blur-2xl border-t border-white/50 p-6 pb-10 rounded-t-[2.5rem] shadow-[0_-20px_50px_rgba(0,0,0,0.1)]"
+    >
+      <div className="max-w-md mx-auto">
+        <div className="flex justify-between items-center mb-6 px-2">
+          <div className="text-left">
+            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-1">Target Value</p>
+            <div className="flex items-baseline gap-1">
+              <p className="text-4xl font-display font-black font-mono text-[#1a1a1a]">
+                {value || <span className="text-zinc-200">{placeholder}</span>}
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={onDone}
+            className="bg-emerald-500 text-white px-10 py-4 rounded-2xl font-display font-black uppercase tracking-widest shadow-[0_10px_20px_rgba(16,185,129,0.2)] active:scale-95 transition-all"
+          >
+            Done
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-2">
+          {keys.map(key => (
+            <button
+              key={key}
+              onClick={() => handleKey(key)}
+              className="h-14 glass-button rounded-xl text-lg font-display font-black text-[#1a1a1a] active:bg-emerald-500 active:text-white transition-all flex items-center justify-center"
+            >
+              {key}
+            </button>
+          ))}
+        </div>
+      </div>
+    </motion.div>
   );
 }
 
@@ -903,6 +1234,7 @@ interface ExerciseCardProps {
   onAddSet: () => void;
   onRemoveSet: () => void;
   dragControls: any;
+  onOpenInput: (idx: number, field: 'weight' | 'reps', val: string, placeholder: string) => void;
 }
 
 function ExerciseCard({ 
@@ -913,7 +1245,8 @@ function ExerciseCard({
   onUpdateVariation,
   onAddSet,
   onRemoveSet,
-  dragControls
+  dragControls,
+  onOpenInput
 }: ExerciseCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const variation = log?.variation || prevLog?.variation || exercise.options[0];
@@ -1031,25 +1364,29 @@ function ExerciseCard({
                     }`}>
                       {String(i + 1).padStart(2, '0')}
                     </div>
-                    <div className="flex-1 grid grid-cols-2 gap-3">
+                    <div className="flex-1 grid grid-cols-2 gap-3 min-w-0">
                       <div className="relative">
-                        <input 
-                          type="number"
-                          placeholder={sets[i-1]?.weight || prevLog?.sets[i]?.weight || "0.0"} 
-                          value={set.weight}
-                          onChange={(e) => onUpdateSet(i, 'weight', e.target.value)}
-                          className="w-full glass-inset rounded-2xl py-3 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-zinc-400 text-[#1a1a1a]" 
-                        />
+                        <button 
+                          onClick={() => {
+                            const placeholder = sets[i-1]?.weight || prevLog?.sets[i]?.weight || "0.0";
+                            onOpenInput(i, 'weight', set.weight, placeholder);
+                          }}
+                          className="w-full glass-inset rounded-2xl py-3 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-[#1a1a1a] min-h-[44px] flex items-center justify-center"
+                        >
+                          {set.weight || <span className="text-zinc-400">{sets[i-1]?.weight || prevLog?.sets[i]?.weight || "0.0"}</span>}
+                        </button>
                         {i === 0 && <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[8px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Weight</span>}
                       </div>
                       <div className="relative">
-                        <input 
-                          type="number"
-                          placeholder={sets[i-1]?.reps || prevLog?.sets[i]?.reps || "0"} 
-                          value={set.reps}
-                          onChange={(e) => onUpdateSet(i, 'reps', e.target.value)}
-                          className="w-full glass-inset rounded-2xl py-3 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all placeholder:text-zinc-400 text-[#1a1a1a]" 
-                        />
+                        <button 
+                          onClick={() => {
+                            const placeholder = sets[i-1]?.reps || prevLog?.sets[i]?.reps || "0";
+                            onOpenInput(i, 'reps', set.reps, placeholder);
+                          }}
+                          className="w-full glass-inset rounded-2xl py-3 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-[#1a1a1a] min-h-[44px] flex items-center justify-center"
+                        >
+                          {set.reps || <span className="text-zinc-400">{sets[i-1]?.reps || prevLog?.sets[i]?.reps || "0"}</span>}
+                        </button>
                         {i === 0 && <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[8px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Reps</span>}
                       </div>
                     </div>

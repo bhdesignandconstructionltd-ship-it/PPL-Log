@@ -20,6 +20,7 @@ export interface SetLog {
 
 export interface WorkoutLog {
   exerciseOrder?: string[];
+  notes?: string;
   [exerciseName: string]: any;
 }
 
