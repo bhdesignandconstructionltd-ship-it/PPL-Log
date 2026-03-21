@@ -31,7 +31,8 @@ import {
   Download,
   Upload,
   ExternalLink,
-  Save
+  Save,
+  Languages
 } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'motion/react';
 import { 
@@ -91,6 +92,158 @@ function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updat
 }
 
 export default function App() {
+  const [settings, setSettings] = useState(() => {
+    const saved = localStorage.getItem(SETTINGS_KEY);
+    return saved ? JSON.parse(saved) : {
+      restIntervalUpper: 60,
+      restIntervalLower: 90,
+      weightUnit: 'kg',
+      language: 'en'
+    };
+  });
+
+  const t = (key: string) => {
+    const translations: any = {
+      en: {
+        repArchive: "REP ARCHIVE",
+        training: "TRAINING",
+        programmes: "PROGRAMMES",
+        history: "HISTORY",
+        settings: "SETTINGS",
+        systemConfig: "System Configuration",
+        upperBodyRest: "Upper Body Rest",
+        lowerBodyRest: "Lower Body Rest",
+        weightUnit: "Weight Unit",
+        language: "Language",
+        exportBackup: "Export Data Backup",
+        editProgramme: "Edit Programme",
+        programmeName: "Programme Name",
+        sessionTitle: "Session Title",
+        exerciseName: "Exercise Name",
+        sets: "Sets",
+        targetReps: "Target Reps",
+        addExercise: "Add Exercise",
+        addTrainingDay: "Add Training Day",
+        save: "SAVE",
+        delete: "DELETE",
+        pinned: "PINNED",
+        apply: "APPLY",
+        edit: "EDIT",
+        newCustomProgramme: "NEW CUSTOM PROGRAMME",
+        defaultPplProgramme: "DEFAULT PPL PROGRAMME",
+        noProgrammeSelected: "No Programme Selected",
+        goToProgrammes: "Go to Programmes",
+        activeSession: "Active Session",
+        totalSets: "Total Sets",
+        progress: "Progress",
+        export: "Export",
+        session: "Session",
+        rest: "REST",
+        complete: "COMPLETE",
+        weight: "Weight",
+        reps: "Reps",
+        historyCalendar: "Calendar",
+        historyProgress: "Progress",
+        totalVolume: "Total Volume",
+        totalReps: "Total Reps",
+        workouts: "Workouts",
+        avgIntensity: "Avg Intensity",
+        volumeTrend: "Volume Trend",
+        intensityTrend: "Intensity Trend",
+        days: "Days",
+        exercises: "Exercises",
+        pushDay: "Push Day",
+        pullDay: "Pull Day",
+        legDay: "Leg Day",
+        defaultExerciseName: "Exercise Name",
+        newExercise: "New Exercise",
+        sessionNotes: "Session Notes",
+        notesPlaceholder: "Record your performance, feelings, or any details about this session...",
+        historyTitle: "History",
+        volumeProgress: "Volume Progress",
+        totalWeightLifted: "Total weight lifted per session",
+        insufficientData: "Insufficient data for chart",
+        avgVolume: "Avg Volume",
+        maxVolume: "Max Volume",
+        unknownWorkout: "Unknown Workout",
+        finishSession: "Finish Session",
+        confirmPurge: "Purge all data for today?",
+        confirmExport: "Export all data as JSON?",
+        confirmDeleteTemplate: "Delete this template?",
+        confirmApplyTemplate: "Apply this template? This will overwrite your current programme."
+      },
+      zh: {
+        repArchive: "訓練紀錄",
+        training: "訓練",
+        programmes: "訓練計畫",
+        history: "歷史",
+        settings: "設定",
+        systemConfig: "系統設定",
+        upperBodyRest: "上半身休息",
+        lowerBodyRest: "下半身休息",
+        weightUnit: "重量單位",
+        language: "語言",
+        exportBackup: "匯出數據備份",
+        editProgramme: "編輯計畫",
+        programmeName: "計畫名稱",
+        sessionTitle: "訓練單元名稱",
+        exerciseName: "動作名稱",
+        sets: "組數",
+        targetReps: "目標次數",
+        addExercise: "新增動作",
+        addTrainingDay: "新增訓練日",
+        save: "儲存",
+        delete: "刪除",
+        pinned: "已置頂",
+        apply: "套用",
+        edit: "編輯",
+        newCustomProgramme: "新自定義計畫",
+        defaultPplProgramme: "預設 PPL 計畫",
+        noProgrammeSelected: "未選擇計畫",
+        goToProgrammes: "前往訓練計畫",
+        activeSession: "當前訓練單元",
+        totalSets: "總組數",
+        progress: "進度",
+        export: "匯出",
+        session: "單元",
+        rest: "休息",
+        complete: "完成",
+        weight: "重量",
+        reps: "次數",
+        historyCalendar: "日曆",
+        historyProgress: "進度",
+        totalVolume: "總容量",
+        totalReps: "總次數",
+        workouts: "訓練次數",
+        avgIntensity: "平均強度",
+        volumeTrend: "容量趨勢",
+        intensityTrend: "強度趨勢",
+        days: "天數",
+        exercises: "動作",
+        pushDay: "推力日",
+        pullDay: "拉力日",
+        legDay: "腿部日",
+        defaultExerciseName: "動作名稱",
+        newExercise: "新動作",
+        sessionNotes: "訓練筆記",
+        notesPlaceholder: "記錄你的表現、感受或關於此單元的任何細節...",
+        historyTitle: "歷史紀錄",
+        volumeProgress: "訓練容量進度",
+        totalWeightLifted: "每次訓練的總負重",
+        insufficientData: "數據不足，無法顯示圖表",
+        avgVolume: "平均容量",
+        maxVolume: "最大容量",
+        unknownWorkout: "未知訓練",
+        finishSession: "完成訓練",
+        confirmPurge: "清除今天的所有數據？",
+        confirmExport: "匯出所有數據為 JSON？",
+        confirmDeleteTemplate: "刪除此計畫？",
+        confirmApplyTemplate: "套用此計畫？這將覆蓋你目前的訓練計畫。"
+      }
+    };
+    return translations[settings.language]?.[key] || translations['en'][key] || key;
+  };
+
   const [activeTab, setActiveTab] = useState<'workout' | 'template' | 'history' | 'settings'>('workout');
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -107,7 +260,7 @@ export default function App() {
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>(() => {
     const saved = localStorage.getItem(SAVED_TEMPLATES_KEY);
     const defaultTemplates = [
-      { id: 'default-ppl', name: 'DEFAULT PPL PROGRAMME', programme: PPL_PROGRAMME, isDefault: true }
+      { id: 'default-ppl', name: t('defaultPplProgramme'), programme: PPL_PROGRAMME, isDefault: true }
     ];
     if (!saved) return defaultTemplates;
     
@@ -131,16 +284,6 @@ export default function App() {
     return saved ? JSON.parse(saved) : {};
   });
   const [historyView, setHistoryView] = useState<'calendar' | 'progress'>('calendar');
-
-  // Settings State
-  const [settings, setSettings] = useState(() => {
-    const saved = localStorage.getItem(SETTINGS_KEY);
-    return saved ? JSON.parse(saved) : {
-      restIntervalUpper: 60,
-      restIntervalLower: 90,
-      weightUnit: 'kg'
-    };
-  });
 
   // Timer State
   const [timerSeconds, setTimerSeconds] = useState<number | null>(null);
@@ -351,7 +494,7 @@ export default function App() {
   }, [logs, today, currentDay.id]);
 
   const clearToday = () => {
-    if (confirm('Purge all data for today?')) {
+    if (confirm(t('confirmPurge'))) {
       setLogs(prev => {
         const newLogs = { ...prev };
         delete newLogs[today];
@@ -569,12 +712,12 @@ export default function App() {
             {!currentDay ? (
               <div className="min-h-screen flex items-center justify-center p-6 text-center">
                 <div className="glass-card p-8 rounded-3xl">
-                  <p className="text-zinc-400 text-sm font-bold uppercase tracking-widest mb-4">No Programme Selected</p>
+                  <p className="text-zinc-400 text-sm font-bold uppercase tracking-widest mb-4">{t('noProgrammeSelected')}</p>
                   <button 
                     onClick={() => setActiveTab('template')}
                     className="bg-emerald-500 text-white px-8 py-4 rounded-2xl font-display font-black uppercase tracking-widest"
                   >
-                    Go to Programmes
+                    {t('goToProgrammes')}
                   </button>
                 </div>
               </div>
@@ -584,13 +727,26 @@ export default function App() {
             <header className="px-6 py-8 flex justify-between items-center sticky top-0 bg-white/40 backdrop-blur-2xl z-20 border-b border-white/50 transition-colors">
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-display font-extrabold tracking-tighter uppercase text-[#1a1a1a]">REP ARCHIVE</h1>
+                  <h1 className="text-xl font-display font-extrabold tracking-tighter uppercase text-[#1a1a1a]">{t('repArchive')}</h1>
                 </div>
                 <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-[0.3em] mt-1.5">
-                  {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
+                  {new Date().toLocaleDateString(settings.language === 'en' ? 'en-US' : 'zh-TW', { weekday: 'long', month: 'short', day: 'numeric' })}
                 </p>
               </div>
               <div className="flex items-center gap-3">
+                <button 
+                  onClick={() => setSettings({ ...settings, language: settings.language === 'en' ? 'zh' : 'en' })}
+                  className="glass-button w-12 h-12 rounded-2xl flex items-center justify-center relative"
+                >
+                  <div className="relative w-9 h-9">
+                    <span className={`absolute bottom-1 right-1 text-[18px] font-black leading-none transition-all duration-300 ${settings.language === 'en' ? 'text-emerald-500' : 'text-zinc-300'}`}>
+                      A
+                    </span>
+                    <span className={`absolute top-1 left-1 text-[15px] font-black leading-none transition-all duration-300 ${settings.language === 'zh' ? 'text-emerald-500' : 'text-zinc-400'}`}>
+                      文
+                    </span>
+                  </div>
+                </button>
                 <button 
                   onClick={() => setActiveTab('settings')}
                   className="glass-button p-3 rounded-2xl"
@@ -636,7 +792,7 @@ export default function App() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2 text-emerald-500 mb-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">Active Session</span>
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em]">{t('activeSession')}</span>
                   </div>
                   {(() => {
                     const match = currentDay.name.match(/^(.*?)\s*(\(.*\))$/);
@@ -671,15 +827,15 @@ export default function App() {
               {/* Stats Overview */}
               <div className="grid grid-cols-3 gap-5 mb-12 items-stretch">
                 <div className="glass-card rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center">
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Exercises</p>
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">{t('exercises')}</p>
                   <p className="text-2xl font-display font-black font-mono text-[#1a1a1a]">{currentDay.exercises.length}</p>
                 </div>
                 <div className="glass-card rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center">
-                  <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mb-2 whitespace-nowrap">Total Sets</p>
+                  <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mb-2 whitespace-nowrap">{t('totalSets')}</p>
                   <p className="text-2xl font-display font-black font-mono text-[#1a1a1a]">{currentDay.exercises.reduce((acc, ex) => acc + ex.sets, 0)}</p>
                 </div>
                 <div className="glass-card rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center">
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Progress</p>
+                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">{t('progress')}</p>
                   <p className="text-2xl font-display font-black font-mono text-emerald-500">{Math.round(workoutProgress)}%</p>
                 </div>
               </div>
@@ -718,12 +874,12 @@ export default function App() {
                   <div className="p-2 bg-emerald-500/10 rounded-xl">
                     <Target className="w-5 h-5 text-emerald-500" />
                   </div>
-                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Session Notes</h3>
+                  <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">{t('sessionNotes')}</h3>
                 </div>
                 <textarea
                   value={logs[today]?.[currentDay.id]?.notes || ''}
                   onChange={(e) => updateNotes(e.target.value)}
-                  placeholder="Record your performance, feelings, or any details about this session..."
+                  placeholder={t('notesPlaceholder')}
                   className="w-full h-32 bg-transparent border-none outline-none text-sm font-display font-medium text-[#1a1a1a] placeholder:text-zinc-300 resize-none"
                 />
               </div>
@@ -734,7 +890,7 @@ export default function App() {
                   className="w-full py-6 bg-emerald-500 text-white font-display font-black uppercase tracking-[0.2em] rounded-3xl hover:bg-emerald-400 transition-all active:scale-95 shadow-[0_15px_40px_rgba(16,185,129,0.3)] flex items-center justify-center gap-3"
                 >
                   <CheckCircle className="w-5 h-5" />
-                  Finish Session
+                  {t('finishSession')}
                 </button>
               </div>
 
@@ -764,9 +920,13 @@ export default function App() {
           <TemplateEditor 
             currentProgramme={programme}
             savedTemplates={savedTemplates}
+            t={t}
+            settings={settings}
             onApplyTemplate={(tpl) => {
-              setProgramme(tpl.programme);
-              setActiveTab('workout');
+              if (confirm(t('confirmApplyTemplate'))) {
+                setProgramme(tpl.programme);
+                setActiveTab('workout');
+              }
             }}
             onSaveTemplate={(tpl) => {
               setSavedTemplates(prev => {
@@ -793,7 +953,7 @@ export default function App() {
           >
             <div className="flex items-center justify-between mb-12">
               <div className="flex items-center">
-                <h1 className="text-xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">History</h1>
+                <h1 className="text-xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">{t('historyTitle')}</h1>
               </div>
               <div className="flex gap-2">
                 {!selectedDate && (
@@ -902,10 +1062,10 @@ export default function App() {
                     <div className="glass-card rounded-[2.5rem] p-8">
                       <div className="mb-8">
                         <h3 className="font-display font-black text-[#1a1a1a] uppercase tracking-tighter text-xl mb-2">
-                          Volume Progress
+                          {t('volumeProgress')}
                         </h3>
                         <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                          Total weight lifted per session ({settings.weightUnit})
+                          {t('totalWeightLifted')} ({settings.weightUnit})
                         </p>
                       </div>
 
@@ -947,7 +1107,7 @@ export default function App() {
                         ) : (
                           <div className="h-full flex flex-col items-center justify-center text-zinc-300">
                             <TrendingUp className="w-12 h-12 mb-4 opacity-20" />
-                            <p className="text-[10px] font-black uppercase tracking-widest">Insufficient data for chart</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest">{t('insufficientData')}</p>
                           </div>
                         )}
                       </div>
@@ -956,7 +1116,7 @@ export default function App() {
                     {/* Stats Summary */}
                     <div className="grid grid-cols-2 gap-4">
                       <div className="glass-card rounded-3xl p-6">
-                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Avg Volume</p>
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">{t('avgVolume')}</p>
                         <p className="text-2xl font-display font-black text-[#1a1a1a]">
                           {chartData.length > 0 
                             ? Math.round(chartData.reduce((acc, curr) => acc + curr.volume, 0) / chartData.length).toLocaleString()
@@ -965,7 +1125,7 @@ export default function App() {
                         </p>
                       </div>
                       <div className="glass-card rounded-3xl p-6">
-                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">Max Volume</p>
+                        <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">{t('maxVolume')}</p>
                         <p className="text-2xl font-display font-black text-emerald-500">
                           {chartData.length > 0 
                             ? Math.max(...chartData.map(d => d.volume)).toLocaleString()
@@ -989,7 +1149,7 @@ export default function App() {
                       const totalWeight = calculateTotalWeight(workoutLog);
                       const prevWeight = getPreviousWorkoutWeight(workoutId, selectedDate);
                       const diff = prevWeight !== null ? totalWeight - prevWeight : null;
-                      const workoutName = programme.find(p => p.id === workoutId)?.name || 'Unknown Workout';
+                      const workoutName = programme.find(p => p.id === workoutId)?.name || t('unknownWorkout');
 
                       return (
                         <div key={workoutId} className="relative overflow-hidden rounded-[2.5rem]">
@@ -1000,7 +1160,7 @@ export default function App() {
                               className="w-20 h-full flex flex-col items-center justify-center text-white gap-1"
                             >
                               <Trash2 className="w-5 h-5" />
-                              <span className="text-[8px] font-black uppercase tracking-widest">Delete</span>
+                              <span className="text-[8px] font-black uppercase tracking-widest">{t('delete')}</span>
                             </button>
                           </div>
 
@@ -1113,15 +1273,15 @@ export default function App() {
             className="p-8 pb-40"
           >
             <div className="flex items-center mb-12">
-              <h1 className="text-xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">Settings</h1>
+              <h1 className="text-xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">{t('settings')}</h1>
             </div>
 
             <div className="space-y-10">
               <section>
-                <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] mb-6">System Configuration</h3>
+                <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] mb-6">{t('systemConfig')}</h3>
                 <div className="space-y-4">
                   <div className="glass-card rounded-3xl p-6 flex justify-between items-center">
-                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">Upper Body Rest</span>
+                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">{t('upperBodyRest')}</span>
                     <select 
                       value={settings.restIntervalUpper}
                       onChange={(e) => setSettings({ ...settings, restIntervalUpper: parseInt(e.target.value) })}
@@ -1133,7 +1293,7 @@ export default function App() {
                     </select>
                   </div>
                   <div className="glass-card rounded-3xl p-6 flex justify-between items-center">
-                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">Lower Body Rest</span>
+                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">{t('lowerBodyRest')}</span>
                     <select 
                       value={settings.restIntervalLower}
                       onChange={(e) => setSettings({ ...settings, restIntervalLower: parseInt(e.target.value) })}
@@ -1145,7 +1305,7 @@ export default function App() {
                     </select>
                   </div>
                   <div className="glass-card rounded-3xl p-6 flex justify-between items-center">
-                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">Weight Unit</span>
+                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">{t('weightUnit')}</span>
                     <select 
                       value={settings.weightUnit}
                       onChange={(e) => setSettings({ ...settings, weightUnit: e.target.value })}
@@ -1155,12 +1315,23 @@ export default function App() {
                       <option value="lb">lb</option>
                     </select>
                   </div>
+                  <div className="glass-card rounded-3xl p-6 flex justify-between items-center">
+                    <span className="text-xs font-bold uppercase tracking-[0.2em] text-zinc-400">{t('language')}</span>
+                    <select 
+                      value={settings.language}
+                      onChange={(e) => setSettings({ ...settings, language: e.target.value })}
+                      className="glass-button text-emerald-500 font-display font-black px-4 py-2 rounded-xl outline-none"
+                    >
+                      <option value="en">English</option>
+                      <option value="zh">繁體中文</option>
+                    </select>
+                  </div>
                 </div>
               </section>
 
               <button 
                 onClick={() => {
-                  if (confirm('Export all data as JSON?')) {
+                  if (confirm(t('confirmExport'))) {
                     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(logs));
                     const downloadAnchorNode = document.createElement('a');
                     downloadAnchorNode.setAttribute("href", dataStr);
@@ -1172,7 +1343,7 @@ export default function App() {
                 }}
                 className="w-full py-6 glass-button text-emerald-500 font-display font-black uppercase tracking-[0.2em] rounded-3xl transition-all active:scale-95"
               >
-                Export Data Backup
+                {t('exportBackup')}
               </button>
             </div>
           </motion.div>
@@ -1186,28 +1357,28 @@ export default function App() {
           className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'workout' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
         >
           <Dumbbell className={`w-5 h-5 ${activeTab === 'workout' ? 'fill-emerald-500/10' : ''}`} />
-          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">TRAINING</span>
+          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">{t('training')}</span>
         </button>
         <button 
           onClick={() => setActiveTab('template')}
           className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'template' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
         >
           <Layout className={`w-5 h-5 ${activeTab === 'template' ? 'fill-emerald-500/10' : ''}`} />
-          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">PROGRAMMES</span>
+          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">{t('programmes')}</span>
         </button>
         <button 
           onClick={() => setActiveTab('history')}
           className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'history' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
         >
           <HistoryIcon className="w-5 h-5" />
-          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">HISTORY</span>
+          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">{t('history')}</span>
         </button>
         <button 
           onClick={() => setActiveTab('settings')}
           className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'settings' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
         >
-          <Settings className="w-5 h-5" />
-          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">SETTINGS</span>
+          <Settings className={`w-5 h-5 ${activeTab === 'settings' ? 'fill-emerald-500/10' : ''}`} />
+          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">{t('settings')}</span>
         </button>
       </nav>
 
@@ -1318,13 +1489,17 @@ function TemplateEditor({
   savedTemplates, 
   onApplyTemplate, 
   onSaveTemplate, 
-  onDeleteTemplate 
+  onDeleteTemplate,
+  t,
+  settings
 }: { 
   currentProgramme: WorkoutDay[], 
   savedTemplates: SavedTemplate[], 
   onApplyTemplate: (tpl: SavedTemplate) => void, 
   onSaveTemplate: (tpl: SavedTemplate) => void, 
-  onDeleteTemplate: (id: string) => void 
+  onDeleteTemplate: (id: string) => void,
+  t: (key: string) => string,
+  settings: any
 }) {
   const [view, setView] = useState<'summary' | 'edit'>('summary');
   const [editingTemplate, setEditingTemplate] = useState<SavedTemplate | null>(null);
@@ -1376,11 +1551,11 @@ function TemplateEditor({
   const startNewTemplate = () => {
     const newTpl: SavedTemplate = {
       id: `tpl-${Date.now()}`,
-      name: 'NEW CUSTOM PROGRAMME',
+      name: t('newCustomProgramme'),
       programme: [
-        { id: `day-${Date.now()}-1`, name: 'Push Day', exercises: [] },
-        { id: `day-${Date.now()}-2`, name: 'Pull Day', exercises: [] },
-        { id: `day-${Date.now()}-3`, name: 'Leg Day', exercises: [] }
+        { id: `day-${Date.now()}-1`, name: t('pushDay'), exercises: [] },
+        { id: `day-${Date.now()}-2`, name: t('pullDay'), exercises: [] },
+        { id: `day-${Date.now()}-3`, name: t('legDay'), exercises: [] }
       ]
     };
     setEditingTemplate(newTpl);
@@ -1411,7 +1586,7 @@ function TemplateEditor({
   const handleAddExercise = (dayIdx: number) => {
     if (!editingTemplate) return;
     const newProgramme = [...editingTemplate.programme];
-    const newExercises = [...newProgramme[dayIdx].exercises, { name: 'New Exercise', sets: 3, reps: '10-12', options: [], bodyPart: 'upper' }];
+    const newExercises = [...newProgramme[dayIdx].exercises, { name: t('newExercise'), sets: 3, reps: '10-12', options: [], bodyPart: 'upper' }];
     newProgramme[dayIdx] = { ...newProgramme[dayIdx], exercises: newExercises };
     setEditingTemplate({ ...editingTemplate, programme: newProgramme });
   };
@@ -1429,7 +1604,7 @@ function TemplateEditor({
     if (editingTemplate.programme.length < 6) {
       const newDay: WorkoutDay = {
         id: `custom-${Date.now()}`,
-        name: `Day ${editingTemplate.programme.length + 1}`,
+        name: settings.language === 'en' ? `Day ${editingTemplate.programme.length + 1}` : `第 ${editingTemplate.programme.length + 1} 天`,
         exercises: []
       };
       setEditingTemplate({ ...editingTemplate, programme: [...editingTemplate.programme, newDay] });
@@ -1451,7 +1626,7 @@ function TemplateEditor({
       >
         <div className="flex items-center justify-between mb-12 gap-4">
           <div className="flex items-center">
-            <h1 className="text-xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">Programmes</h1>
+            <h1 className="text-xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">{t('programmes')}</h1>
           </div>
           <div className="flex gap-2 shrink-0">
             <input 
@@ -1491,7 +1666,7 @@ function TemplateEditor({
                   </button>
                   <button 
                     onClick={() => {
-                      if (confirm('Delete this template?')) onDeleteTemplate(tpl.id);
+                      if (confirm(t('confirmDeleteTemplate'))) onDeleteTemplate(tpl.id);
                     }}
                     className="flex-1 w-full flex flex-col items-center justify-center text-white bg-red-500"
                   >
@@ -1509,13 +1684,15 @@ function TemplateEditor({
               >
                 {tpl.isDefault && (
                   <div className="absolute top-0 right-0 bg-emerald-500 text-white pl-4 pr-5 py-1.5 rounded-bl-2xl text-[8px] font-black uppercase tracking-[0.2em] flex items-center justify-center">
-                    PINNED
+                    {t('pinned')}
                   </div>
                 )}
                 <div>
-                  <h3 className="text-xl font-display font-black text-[#1a1a1a] uppercase tracking-tighter mb-2">{tpl.name}</h3>
+                  <h3 className="text-xl font-display font-black text-[#1a1a1a] uppercase tracking-tighter mb-2">
+                    {tpl.isDefault ? t('defaultPplProgramme') : tpl.name}
+                  </h3>
                   <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">
-                    {tpl.programme?.length || 0} Days • {tpl.programme?.reduce((acc, d) => acc + d.exercises.length, 0) || 0} Exercises
+                    {tpl.programme?.length || 0} {t('days')} • {tpl.programme?.reduce((acc, d) => acc + d.exercises.length, 0) || 0} {t('exercises')}
                   </p>
                 </div>
                 <div className="flex gap-3">
@@ -1523,13 +1700,13 @@ function TemplateEditor({
                     onClick={() => onApplyTemplate(tpl)}
                     className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-md active:scale-95 transition-all"
                   >
-                    Apply
+                    {t('apply')}
                   </button>
                   <button 
                     onClick={() => editExisting(tpl)}
                     className="flex-1 py-4 glass-button rounded-2xl text-[10px] font-black uppercase tracking-widest text-[#1a1a1a] active:scale-95 transition-all"
                   >
-                    Edit
+                    {t('edit')}
                   </button>
                 </div>
               </motion.div>
@@ -1555,7 +1732,7 @@ function TemplateEditor({
           >
             <ArrowLeft className="w-5 h-5 text-zinc-400" />
           </button>
-          <h1 className="text-2xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">Edit Programme</h1>
+          <h1 className="text-2xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">{t('editProgramme')}</h1>
         </div>
         <div className="flex gap-2">
           <button 
@@ -1563,7 +1740,7 @@ function TemplateEditor({
             className="glass-button px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-emerald-500 active:scale-95 transition-all flex items-center gap-2"
           >
             <ExternalLink className="w-4 h-4" />
-            Export
+            {t('export')}
           </button>
           <button 
             onClick={() => {
@@ -1574,19 +1751,19 @@ function TemplateEditor({
             }}
             className="bg-emerald-500 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
           >
-            Save
+            {t('save')}
           </button>
         </div>
       </div>
 
       <div className="space-y-8">
         <div className="glass-inset p-6 rounded-3xl space-y-2">
-          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400">Programme Name</p>
+          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400">{t('programmeName')}</p>
           <input 
             value={editingTemplate?.name || ''}
             onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, name: e.target.value } : null)}
             className="w-full bg-white/50 border border-zinc-200 rounded-2xl p-4 text-lg font-display font-black text-[#1a1a1a] outline-none focus:border-emerald-500 transition-all"
-            placeholder="Programme Name"
+            placeholder={t('programmeName')}
           />
         </div>
 
@@ -1621,7 +1798,7 @@ function TemplateEditor({
                     <h3 className="text-xl font-display font-black text-[#1a1a1a] uppercase tracking-tighter">{day.name}</h3>
                   </div>
                   <div className="flex items-center gap-4">
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{day.exercises.length} Exercises</span>
+                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{day.exercises.length} {t('exercises')}</span>
                     <ChevronDown className={`w-5 h-5 text-zinc-400 transition-transform duration-300 ${expandedDays.has(day.id) ? 'rotate-180' : ''}`} />
                   </div>
                 </button>
@@ -1638,7 +1815,7 @@ function TemplateEditor({
                         <div className="h-px bg-zinc-100" />
                         
                         <div className="space-y-4">
-                          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400">Session Title</p>
+                          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400">{t('sessionTitle')}</p>
                           <div className="bg-white/50 border border-zinc-200 rounded-2xl p-4 flex items-center justify-between gap-4">
                             <input 
                               value={day.name}
@@ -1652,13 +1829,13 @@ function TemplateEditor({
                         {day.exercises.map((ex, exIdx) => (
                           <div key={exIdx} className="glass-inset p-6 rounded-3xl space-y-6 border border-zinc-100">
                             <div className="space-y-3">
-                              <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Exercise Name</p>
+                              <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">{t('exerciseName')}</p>
                               <div className="bg-white/80 border border-zinc-200 rounded-2xl p-4 flex items-center justify-between gap-4">
                                 <input 
                                   value={ex.name}
                                   onChange={(e) => handleUpdateExercise(dayIdx, exIdx, 'name', e.target.value)}
                                   className="bg-transparent border-none outline-none text-sm font-display font-black text-[#1a1a1a] uppercase tracking-widest w-full"
-                                  placeholder="Exercise Name"
+                                  placeholder={t('exerciseName')}
                                 />
                                 <button 
                                   onClick={() => handleRemoveExercise(dayIdx, exIdx)}
@@ -1671,7 +1848,7 @@ function TemplateEditor({
 
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-3">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Sets</p>
+                                <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">{t('sets')}</p>
                                 <div className="bg-white/80 border border-zinc-200 rounded-2xl p-4">
                                   <input 
                                     type="number"
@@ -1682,7 +1859,7 @@ function TemplateEditor({
                                 </div>
                               </div>
                               <div className="space-y-3">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">Target Reps</p>
+                                <p className="text-[8px] font-black uppercase tracking-widest text-zinc-400">{t('targetReps')}</p>
                                 <div className="bg-white/80 border border-zinc-200 rounded-2xl p-4">
                                   <input 
                                     value={ex.reps}
@@ -1700,7 +1877,7 @@ function TemplateEditor({
                           className="w-full py-5 border-2 border-dashed border-zinc-200 rounded-3xl text-zinc-400 font-display font-black text-[10px] uppercase tracking-widest hover:border-emerald-500/30 hover:text-emerald-500 transition-all flex items-center justify-center gap-2"
                         >
                           <Plus className="w-4 h-4" />
-                          Add Exercise
+                          {t('addExercise')}
                         </button>
                       </div>
                     </div>
@@ -1717,7 +1894,7 @@ function TemplateEditor({
               className="w-full py-8 border-2 border-dashed border-emerald-500/20 rounded-[2.5rem] text-emerald-500/40 font-display font-black text-xs uppercase tracking-[0.3em] hover:bg-emerald-500/5 hover:text-emerald-500 hover:border-emerald-500/40 transition-all flex flex-col items-center gap-3"
             >
               <Plus className="w-6 h-6" />
-              Add Training Day
+              {t('addTrainingDay')}
             </button>
           )}
 
@@ -1732,7 +1909,7 @@ function TemplateEditor({
               className="w-full py-6 bg-emerald-500 text-white rounded-[2.5rem] font-display font-black text-xs uppercase tracking-[0.3em] shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
             >
               <Save className="w-5 h-5" />
-              SAVE
+              {t('save')}
             </button>
           </div>
         </div>
