@@ -30,7 +30,8 @@ import {
   Minus,
   Download,
   Upload,
-  ExternalLink
+  ExternalLink,
+  Save
 } from 'lucide-react';
 import { motion, AnimatePresence, Reorder, useDragControls } from 'motion/react';
 import { 
@@ -106,7 +107,7 @@ export default function App() {
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>(() => {
     const saved = localStorage.getItem(SAVED_TEMPLATES_KEY);
     const defaultTemplates = [
-      { id: 'default-ppl', name: 'Default PPL Programme', programme: PPL_PROGRAMME, isDefault: true }
+      { id: 'default-ppl', name: 'DEFAULT PPL PROGRAMME', programme: PPL_PROGRAMME, isDefault: true }
     ];
     if (!saved) return defaultTemplates;
     
@@ -1185,28 +1186,28 @@ export default function App() {
           className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'workout' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
         >
           <Dumbbell className={`w-5 h-5 ${activeTab === 'workout' ? 'fill-emerald-500/10' : ''}`} />
-          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">Training</span>
+          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">TRAINING</span>
         </button>
         <button 
           onClick={() => setActiveTab('template')}
           className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'template' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
         >
           <Layout className={`w-5 h-5 ${activeTab === 'template' ? 'fill-emerald-500/10' : ''}`} />
-          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">Programme</span>
+          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">PROGRAMMES</span>
         </button>
         <button 
           onClick={() => setActiveTab('history')}
           className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'history' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
         >
           <HistoryIcon className="w-5 h-5" />
-          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">History</span>
+          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">HISTORY</span>
         </button>
         <button 
           onClick={() => setActiveTab('settings')}
           className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'settings' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
         >
           <Settings className="w-5 h-5" />
-          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">Config</span>
+          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">SETTINGS</span>
         </button>
       </nav>
 
@@ -1375,7 +1376,7 @@ function TemplateEditor({
   const startNewTemplate = () => {
     const newTpl: SavedTemplate = {
       id: `tpl-${Date.now()}`,
-      name: 'New Custom Programme',
+      name: 'NEW CUSTOM PROGRAMME',
       programme: [
         { id: `day-${Date.now()}-1`, name: 'Push Day', exercises: [] },
         { id: `day-${Date.now()}-2`, name: 'Pull Day', exercises: [] },
@@ -1507,8 +1508,8 @@ function TemplateEditor({
                 className="glass-card rounded-[2.5rem] p-8 space-y-6 relative z-10 bg-[#f5f5f5]"
               >
                 {tpl.isDefault && (
-                  <div className="absolute top-0 right-0 bg-emerald-500 text-white px-4 py-1 rounded-bl-2xl text-[8px] font-black uppercase tracking-widest">
-                    Pinned
+                  <div className="absolute top-0 right-0 bg-emerald-500 text-white pl-4 pr-5 py-1.5 rounded-bl-2xl text-[8px] font-black uppercase tracking-[0.2em] flex items-center justify-center">
+                    PINNED
                   </div>
                 )}
                 <div>
@@ -1719,6 +1720,21 @@ function TemplateEditor({
               Add Training Day
             </button>
           )}
+
+          <div className="pt-8">
+            <button 
+              onClick={() => {
+                if (editingTemplate) {
+                  onSaveTemplate(editingTemplate);
+                  setView('summary');
+                }
+              }}
+              className="w-full py-6 bg-emerald-500 text-white rounded-[2.5rem] font-display font-black text-xs uppercase tracking-[0.3em] shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+            >
+              <Save className="w-5 h-5" />
+              SAVE
+            </button>
+          </div>
         </div>
       </div>
     </motion.div>
