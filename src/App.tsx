@@ -67,7 +67,7 @@ const SETTINGS_KEY = 'ppl_pro_settings';
 const PROGRAMME_KEY = 'ppl_pro_custom_programme';
 const SAVED_TEMPLATES_KEY = 'ppl_pro_saved_templates';
 
-function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updateSet, updateVariation, addSet, removeSet, onReorder, onOpenInput }: any) {
+function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updateSet, updateVariation, addSet, removeSet, onReorder, onOpenInput, isExpanded, onToggleExpand }: any) {
   const controls = useDragControls();
   return (
     <Reorder.Item 
@@ -86,6 +86,8 @@ function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updat
         onRemoveSet={() => removeSet(ex)}
         dragControls={controls}
         onOpenInput={onOpenInput}
+        isExpanded={isExpanded}
+        onToggleExpand={onToggleExpand}
       />
     </Reorder.Item>
   );
@@ -244,7 +246,16 @@ export default function App() {
     return translations[settings.language]?.[key] || translations['en'][key] || key;
   };
 
+  const tabs = [
+    { id: 'workout', icon: Dumbbell, label: t('training') },
+    { id: 'template', icon: Layout, label: t('programmes') },
+    { id: 'history', icon: HistoryIcon, label: t('history') },
+    { id: 'settings', icon: Settings, label: t('settings') },
+  ];
+
   const [activeTab, setActiveTab] = useState<'workout' | 'template' | 'history' | 'settings'>('workout');
+  const activeIndex = tabs.findIndex(tab => tab.id === activeTab);
+  const [expandedExercise, setExpandedExercise] = useState<string | null>(null);
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [programme, setProgramme] = useState<WorkoutDay[]>(() => {
@@ -309,7 +320,12 @@ export default function App() {
 
   useEffect(() => {
     localStorage.setItem(DAY_INDEX_KEY, activeDayIndex.toString());
+    setExpandedExercise(null);
   }, [activeDayIndex]);
+
+  useEffect(() => {
+    setExpandedExercise(null);
+  }, [activeTab]);
 
   useEffect(() => {
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
@@ -592,7 +608,7 @@ export default function App() {
           <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400 mb-1">
             {payload[0].payload.date}
           </p>
-          <p className="text-lg font-display font-black text-emerald-500">
+          <p className="text-lg font-display font-black text-accent">
             {payload[0].value.toLocaleString()} <span className="text-xs text-zinc-400">{settings.weightUnit}</span>
           </p>
         </div>
@@ -698,8 +714,45 @@ export default function App() {
     });
   };
 
+  const getSessionLabel = (date: Date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    const dayLogs = logs[dateStr];
+    if (!dayLogs) return null;
+    const workoutId = Object.keys(dayLogs)[0];
+    if (!workoutId) return null;
+    
+    const defaultLabels: Record<string, string> = {
+      'push-1': 'Push 1',
+      'pull-1': 'Pull 1',
+      'legs-1': 'Leg 1',
+      'push-2': 'Push 2',
+      'pull-2': 'Pull 2',
+      'legs-2': 'Leg 2'
+    };
+    
+    if (defaultLabels[workoutId]) return defaultLabels[workoutId];
+    
+    let workout = programme.find(p => p.id === workoutId);
+    if (!workout) {
+      for (const tpl of savedTemplates) {
+        workout = tpl.programme.find(p => p.id === workoutId);
+        if (workout) break;
+      }
+    }
+    
+    if (!workout) return null;
+    
+    const name = workout.name;
+    const match = name.match(/^(Push|Pull|Leg)s?\s*Day\s*(\d+)/i);
+    if (match) {
+      return `${match[1]} ${match[2]}`;
+    }
+    
+    return name.split(' ').slice(0, 2).join(' ');
+  };
+
   return (
-    <div className="min-h-screen selection:bg-emerald-500/30 font-sans text-[#1a1a1a] transition-colors duration-300">
+    <div className="min-h-screen selection:bg-accent/30 font-sans text-[#1a1a1a] transition-colors duration-300">
       <AnimatePresence mode="wait">
         {activeTab === 'workout' && (
           <motion.div
@@ -715,7 +768,7 @@ export default function App() {
                   <p className="text-zinc-400 text-sm font-bold uppercase tracking-widest mb-4">{t('noProgrammeSelected')}</p>
                   <button 
                     onClick={() => setActiveTab('template')}
-                    className="bg-emerald-500 text-white px-8 py-4 rounded-2xl font-display font-black uppercase tracking-widest"
+                    className="bg-accent text-white px-8 py-4 rounded-2xl font-display font-black uppercase tracking-widest"
                   >
                     {t('goToProgrammes')}
                   </button>
@@ -739,10 +792,10 @@ export default function App() {
                   className="glass-button w-12 h-12 rounded-2xl flex items-center justify-center relative"
                 >
                   <div className="relative w-9 h-9">
-                    <span className={`absolute bottom-1 right-1 text-[18px] font-black leading-none transition-all duration-300 ${settings.language === 'en' ? 'text-emerald-500' : 'text-zinc-300'}`}>
+                    <span className={`absolute bottom-1 right-1 text-[18px] font-black leading-none transition-all duration-300 ${settings.language === 'en' ? 'text-accent' : 'text-zinc-300'}`}>
                       A
                     </span>
-                    <span className={`absolute top-1 left-1 text-[15px] font-black leading-none transition-all duration-300 ${settings.language === 'zh' ? 'text-emerald-500' : 'text-zinc-400'}`}>
+                    <span className={`absolute top-1 left-1 text-[15px] font-black leading-none transition-all duration-300 ${settings.language === 'zh' ? 'text-accent' : 'text-zinc-400'}`}>
                       文
                     </span>
                   </div>
@@ -759,7 +812,7 @@ export default function App() {
             {/* Progress Bar */}
             <div className="h-[3px] w-full bg-white/50 sticky top-[93px] z-20">
               <motion.div 
-                className="h-full bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]"
+                className="h-full bg-accent shadow-[0_0_20px_rgba(15,15,15,0.4)]"
                 initial={{ width: 0 }}
                 animate={{ width: `${workoutProgress}%` }}
                 transition={{ type: 'spring', damping: 25, stiffness: 120 }}
@@ -775,13 +828,13 @@ export default function App() {
                     <motion.div 
                       initial={false}
                       animate={{ 
-                        backgroundColor: s.tracked ? '#10b981' : '#ef4444',
+                        backgroundColor: s.tracked ? '#0F0F0F' : '#9B9B9B',
                         scale: s.tracked ? [1, 1.1, 1] : 1,
-                        boxShadow: s.tracked ? '0 0 10px rgba(16,185,129,0.3)' : '0 0 10px rgba(239,68,68,0.1)'
+                        boxShadow: s.tracked ? '0 0 10px rgba(15,15,15,0.3)' : '0 0 10px rgba(155,155,155,0.1)'
                       }}
                       className="w-2.5 h-2.5 rounded-full"
                     />
-                    <span className={`text-[7px] font-black uppercase tracking-tighter ${s.tracked ? 'text-emerald-600' : 'text-zinc-400'}`}>
+                    <span className={`text-[7px] font-black uppercase tracking-tighter ${s.tracked ? 'text-accent' : 'text-zinc-400'}`}>
                       {s.label}
                     </span>
                   </div>
@@ -790,8 +843,8 @@ export default function App() {
 
               <div className="flex items-end justify-between mb-12 mt-6">
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-emerald-500 mb-2">
-                    <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <div className="flex items-center gap-2 text-accent mb-2">
+                    <div className="w-2 h-2 rounded-full bg-accent animate-pulse" />
                     <span className="text-[10px] font-black uppercase tracking-[0.2em]">{t('activeSession')}</span>
                   </div>
                   {(() => {
@@ -836,7 +889,7 @@ export default function App() {
                 </div>
                 <div className="glass-card rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center">
                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">{t('progress')}</p>
-                  <p className="text-2xl font-display font-black font-mono text-emerald-500">{Math.round(workoutProgress)}%</p>
+                  <p className="text-2xl font-display font-black font-mono text-accent">{Math.round(workoutProgress)}%</p>
                 </div>
               </div>
 
@@ -865,14 +918,16 @@ export default function App() {
                         placeholder
                       });
                     }}
+                    isExpanded={expandedExercise === ex.name}
+                    onToggleExpand={() => setExpandedExercise(expandedExercise === ex.name ? null : ex.name)}
                   />
                 ))}
               </Reorder.Group>
 
               <div className="mt-12 glass-card rounded-[2.5rem] p-8 space-y-4">
                 <div className="flex items-center gap-3 mb-2">
-                  <div className="p-2 bg-emerald-500/10 rounded-xl">
-                    <Target className="w-5 h-5 text-emerald-500" />
+                  <div className="p-2 bg-accent-soft rounded-xl">
+                    <Target className="w-5 h-5 text-accent" />
                   </div>
                   <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">{t('sessionNotes')}</h3>
                 </div>
@@ -887,7 +942,7 @@ export default function App() {
               <div className="mt-12">
                 <button 
                   onClick={finishWorkout}
-                  className="w-full py-6 bg-emerald-500 text-white font-display font-black uppercase tracking-[0.2em] rounded-3xl hover:bg-emerald-400 transition-all active:scale-95 shadow-[0_15px_40px_rgba(16,185,129,0.3)] flex items-center justify-center gap-3"
+                  className="w-full py-6 bg-accent text-white font-display font-black uppercase tracking-[0.2em] rounded-3xl hover:opacity-90 transition-all active:scale-95 shadow-[0_15px_40px_rgba(15,15,15,0.3)] flex items-center justify-center gap-3"
                 >
                   <CheckCircle className="w-5 h-5" />
                   {t('finishSession')}
@@ -897,14 +952,14 @@ export default function App() {
               <div className="flex gap-4 mt-12">
                 <button 
                   onClick={scrollToTop}
-                  className="flex-1 py-6 glass-button rounded-3xl text-emerald-500 font-display font-bold text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 transition-all"
+                  className="flex-1 py-6 glass-button rounded-3xl text-accent font-display font-bold text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 transition-all"
                 >
                   <ArrowUp className="w-4 h-4" />
                   Back to Top
                 </button>
                 <button 
                   onClick={clearToday}
-                  className="flex-1 py-6 glass-button rounded-3xl border-red-500/20 text-red-500/40 font-display font-bold text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:bg-red-500/5 hover:text-red-500 transition-all"
+                  className="flex-1 py-6 glass-button rounded-3xl border-danger/20 text-danger/40 font-display font-bold text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 hover:bg-danger/5 hover:text-danger transition-all"
                 >
                   <Trash2 className="w-4 h-4" />
                   Purge Data
@@ -960,13 +1015,13 @@ export default function App() {
                   <div className="flex glass-inset p-1 rounded-2xl">
                     <button 
                       onClick={() => setHistoryView('calendar')}
-                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${historyView === 'calendar' ? 'bg-white text-emerald-500 shadow-sm' : 'text-zinc-400'}`}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${historyView === 'calendar' ? 'bg-white text-accent shadow-sm' : 'text-zinc-400'}`}
                     >
                       <CalendarIcon className="w-4 h-4" />
                     </button>
                     <button 
                       onClick={() => setHistoryView('progress')}
-                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${historyView === 'progress' ? 'bg-white text-emerald-500 shadow-sm' : 'text-zinc-400'}`}
+                      className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${historyView === 'progress' ? 'bg-white text-accent shadow-sm' : 'text-zinc-400'}`}
                     >
                       <TrendingUp className="w-4 h-4" />
                     </button>
@@ -975,7 +1030,7 @@ export default function App() {
                 {selectedDate && (
                   <button 
                     onClick={() => setSelectedDate(null)}
-                    className="glass-button p-3 rounded-2xl text-emerald-500"
+                    className="glass-button p-3 rounded-2xl text-accent"
                   >
                     <ArrowLeft className="w-5 h-5" />
                   </button>
@@ -1037,13 +1092,18 @@ export default function App() {
                               className={`
                                 aspect-square rounded-2xl flex flex-col items-center justify-center gap-1 transition-all relative
                                 ${!isCurrentMonth ? 'opacity-10 pointer-events-none' : ''}
-                                ${hasWorkout ? 'glass-button text-emerald-500 hover:scale-105 active:scale-95' : 'text-zinc-300'}
-                                ${isTodayDate ? 'ring-2 ring-emerald-500 ring-offset-4 ring-offset-[#f5f5f5]' : ''}
+                                ${hasWorkout ? 'glass-button text-accent hover:scale-105 active:scale-95' : 'text-zinc-300'}
+                                ${isTodayDate ? 'ring-2 ring-accent ring-offset-4 ring-offset-[#f5f5f5]' : ''}
                               `}
                             >
                               <span className="text-xs font-black font-mono">{format(day, 'd')}</span>
                               {hasWorkout && (
-                                <div className="w-1 h-1 rounded-full bg-emerald-500" />
+                                <div className="flex flex-col items-center gap-0.5">
+                                  <div className="w-1 h-1 rounded-full bg-accent" />
+                                  <span className="text-[6px] font-bold text-accent uppercase tracking-tighter whitespace-nowrap overflow-hidden max-w-full px-1">
+                                    {getSessionLabel(day)}
+                                  </span>
+                                </div>
                               )}
                             </button>
                           );
@@ -1075,8 +1135,8 @@ export default function App() {
                             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                               <defs>
                                 <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
-                                  <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
-                                  <stop offset="95%" stopColor="#10b981" stopOpacity={0}/>
+                                  <stop offset="5%" stopColor="#0F0F0F" stopOpacity={0.3}/>
+                                  <stop offset="95%" stopColor="#0F0F0F" stopOpacity={0}/>
                                 </linearGradient>
                               </defs>
                               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e5e7eb" />
@@ -1096,7 +1156,7 @@ export default function App() {
                               <Area 
                                 type="monotone" 
                                 dataKey="volume" 
-                                stroke="#10b981" 
+                                stroke="#0F0F0F" 
                                 strokeWidth={4}
                                 fillOpacity={1} 
                                 fill="url(#colorVolume)" 
@@ -1126,7 +1186,7 @@ export default function App() {
                       </div>
                       <div className="glass-card rounded-3xl p-6">
                         <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">{t('maxVolume')}</p>
-                        <p className="text-2xl font-display font-black text-emerald-500">
+                        <p className="text-2xl font-display font-black text-accent">
                           {chartData.length > 0 
                             ? Math.max(...chartData.map(d => d.volume)).toLocaleString()
                             : 0}
@@ -1154,7 +1214,7 @@ export default function App() {
                       return (
                         <div key={workoutId} className="relative overflow-hidden rounded-[2.5rem]">
                           {/* Delete Action (Behind) */}
-                          <div className="absolute inset-y-0 right-0 w-32 bg-red-500 rounded-r-[2.5rem] flex justify-end">
+                          <div className="absolute inset-y-0 right-0 w-32 bg-danger rounded-r-[2.5rem] flex justify-end">
                             <button 
                               onClick={() => deleteWorkout(selectedDate!, workoutId)}
                               className="w-20 h-full flex flex-col items-center justify-center text-white gap-1"
@@ -1177,7 +1237,7 @@ export default function App() {
                                 const focus = match ? match[2] : '';
                                 return (
                                   <>
-                                    <h3 className="font-display font-black text-emerald-500 uppercase tracking-tighter text-2xl leading-tight text-left">
+                                    <h3 className="font-display font-black text-accent uppercase tracking-tighter text-2xl leading-tight text-left">
                                       {title}
                                     </h3>
                                     {focus && <p className="text-sm font-display font-semibold text-zinc-500 tracking-tight leading-none text-left mt-1">{focus}</p>}
@@ -1214,8 +1274,8 @@ export default function App() {
                             {workoutLog.notes && (
                               <div className="mt-12 pt-8 border-t border-black/5">
                                 <div className="flex items-center gap-3 mb-4">
-                                  <div className="p-2 bg-emerald-500/10 rounded-xl">
-                                    <Target className="w-4 h-4 text-emerald-500" />
+                                  <div className="p-2 bg-accent-soft rounded-xl">
+                                    <Target className="w-4 h-4 text-accent" />
                                   </div>
                                   <h3 className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Session Notes</h3>
                                 </div>
@@ -1232,7 +1292,7 @@ export default function App() {
                               </div>
                               
                               {diff !== null && (
-                                <div className={`flex items-center gap-2 px-4 py-2 rounded-full font-display font-black text-[10px] uppercase tracking-widest ${diff >= 0 ? 'bg-emerald-500/10 text-emerald-500' : 'bg-red-500/10 text-red-500'}`}>
+                                <div className={`flex items-center gap-2 px-4 py-2 rounded-full font-display font-black text-[10px] uppercase tracking-widest ${diff >= 0 ? 'bg-accent-soft text-accent' : 'bg-danger/10 text-danger'}`}>
                                   {diff >= 0 ? '+' : ''}{diff.toLocaleString()} {settings.weightUnit}
                                   <span className="opacity-50">vs previous</span>
                                 </div>
@@ -1252,7 +1312,7 @@ export default function App() {
                   <div className="mt-12">
                     <button 
                       onClick={scrollToTop}
-                      className="w-full py-6 glass-button rounded-3xl text-emerald-500 font-display font-bold text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 transition-all"
+                      className="w-full py-6 glass-button rounded-3xl text-accent font-display font-bold text-[10px] uppercase tracking-[0.3em] flex items-center justify-center gap-3 transition-all"
                     >
                       <ArrowUp className="w-4 h-4" />
                       Back to Top
@@ -1285,7 +1345,7 @@ export default function App() {
                     <select 
                       value={settings.restIntervalUpper}
                       onChange={(e) => setSettings({ ...settings, restIntervalUpper: parseInt(e.target.value) })}
-                      className="glass-button text-emerald-500 font-display font-black font-mono px-4 py-2 rounded-xl outline-none"
+                      className="glass-button text-accent font-display font-black font-mono px-4 py-2 rounded-xl outline-none"
                     >
                       {[30, 45, 60, 75, 90, 105, 120].map(s => (
                         <option key={s} value={s}>{s}s</option>
@@ -1297,7 +1357,7 @@ export default function App() {
                     <select 
                       value={settings.restIntervalLower}
                       onChange={(e) => setSettings({ ...settings, restIntervalLower: parseInt(e.target.value) })}
-                      className="glass-button text-emerald-500 font-display font-black font-mono px-4 py-2 rounded-xl outline-none"
+                      className="glass-button text-accent font-display font-black font-mono px-4 py-2 rounded-xl outline-none"
                     >
                       {[60, 75, 90, 105, 120, 135, 150, 180].map(s => (
                         <option key={s} value={s}>{s}s</option>
@@ -1309,7 +1369,7 @@ export default function App() {
                     <select 
                       value={settings.weightUnit}
                       onChange={(e) => setSettings({ ...settings, weightUnit: e.target.value })}
-                      className="glass-button text-emerald-500 font-display font-black font-mono px-4 py-2 rounded-xl outline-none uppercase"
+                      className="glass-button text-accent font-display font-black font-mono px-4 py-2 rounded-xl outline-none uppercase"
                     >
                       <option value="kg">kg</option>
                       <option value="lb">lb</option>
@@ -1320,7 +1380,7 @@ export default function App() {
                     <select 
                       value={settings.language}
                       onChange={(e) => setSettings({ ...settings, language: e.target.value })}
-                      className="glass-button text-emerald-500 font-display font-black px-4 py-2 rounded-xl outline-none"
+                      className="glass-button text-accent font-display font-black px-4 py-2 rounded-xl outline-none"
                     >
                       <option value="en">English</option>
                       <option value="zh">繁體中文</option>
@@ -1341,7 +1401,7 @@ export default function App() {
                     downloadAnchorNode.remove();
                   }
                 }}
-                className="w-full py-6 glass-button text-emerald-500 font-display font-black uppercase tracking-[0.2em] rounded-3xl transition-all active:scale-95"
+                className="w-full py-6 glass-button text-accent font-display font-black uppercase tracking-[0.2em] rounded-3xl transition-all active:scale-95"
               >
                 {t('exportBackup')}
               </button>
@@ -1351,36 +1411,89 @@ export default function App() {
       </AnimatePresence>
 
       {/* Bottom Nav */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-white/40 backdrop-blur-3xl border-t border-white/50 px-6 py-6 flex justify-around items-center z-30 transition-colors">
-        <button 
-          onClick={() => setActiveTab('workout')}
-          className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'workout' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
-        >
-          <Dumbbell className={`w-5 h-5 ${activeTab === 'workout' ? 'fill-emerald-500/10' : ''}`} />
-          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">{t('training')}</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('template')}
-          className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'template' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
-        >
-          <Layout className={`w-5 h-5 ${activeTab === 'template' ? 'fill-emerald-500/10' : ''}`} />
-          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">{t('programmes')}</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('history')}
-          className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'history' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
-        >
-          <HistoryIcon className="w-5 h-5" />
-          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">{t('history')}</span>
-        </button>
-        <button 
-          onClick={() => setActiveTab('settings')}
-          className={`flex flex-col items-center gap-2 transition-all ${activeTab === 'settings' ? 'text-emerald-500 scale-110' : 'text-zinc-400 hover:text-zinc-600'}`}
-        >
-          <Settings className={`w-5 h-5 ${activeTab === 'settings' ? 'fill-emerald-500/10' : ''}`} />
-          <span className="text-[7.5px] font-black uppercase tracking-[0.2em]">{t('settings')}</span>
-        </button>
-      </nav>
+      <div className="fixed bottom-0 left-0 right-0 z-30 pointer-events-none">
+        <div className="relative w-full pointer-events-auto h-[80px]">
+          {/* SVG Background with dynamic dip */}
+          <svg 
+            width="100%" 
+            height="80" 
+            viewBox="0 0 400 80" 
+            className="absolute top-0 left-0 drop-shadow-[0_-10px_30px_rgba(0,0,0,0.1)]"
+            preserveAspectRatio="none"
+          >
+            <motion.path 
+              animate={{ 
+                d: `M 0 25 
+                   L ${activeIndex * 100 + 50 - 55} 25 
+                   C ${activeIndex * 100 + 50 - 35} 25 ${activeIndex * 100 + 50 - 30} 0 ${activeIndex * 100 + 50} 0 
+                   C ${activeIndex * 100 + 50 + 30} 0 ${activeIndex * 100 + 50 + 35} 25 ${activeIndex * 100 + 50 + 55} 25 
+                   L 400 25 
+                   L 400 80 
+                   L 0 80 
+                   Z` 
+              }}
+              transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              fill="rgba(15, 15, 15, 0.9)"
+              className="backdrop-blur-xl"
+            />
+          </svg>
+
+          {/* Active Circle Indicator */}
+          <motion.div 
+            animate={{ 
+              left: `${activeIndex * 25 + 12.5}%`,
+              y: -10
+            }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="absolute top-0 w-12 h-12 bg-white rounded-full shadow-lg flex items-center justify-center z-10 -translate-x-1/2"
+          >
+            {(() => {
+              const ActiveIcon = tabs[activeIndex].icon;
+              return <ActiveIcon className="w-6 h-6 text-[#0F0F0F]" />;
+            })()}
+          </motion.div>
+
+          {/* Navigation Buttons */}
+          <nav className="relative flex justify-around items-center h-full pt-4">
+            {tabs.map((tab, i) => {
+              const Icon = tab.icon;
+              const isActive = activeTab === tab.id;
+              return (
+                <button 
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className="relative flex flex-col items-center justify-center w-1/4 h-full"
+                >
+                  {/* Inactive Icon */}
+                  <motion.div
+                    animate={{ 
+                      opacity: isActive ? 0 : 1,
+                      y: isActive ? 20 : 0
+                    }}
+                    className="text-white/40"
+                  >
+                    <Icon className="w-5 h-5" />
+                  </motion.div>
+
+                  {/* Active Label */}
+                  <AnimatePresence>
+                    {isActive && (
+                      <motion.span 
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: 10 }}
+                        className="absolute bottom-4 text-[8px] font-black uppercase tracking-[0.2em] text-white"
+                      >
+                        {tab.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+      </div>
 
       {/* Rest Timer Overlay */}
       <AnimatePresence>
@@ -1393,8 +1506,8 @@ export default function App() {
           >
             <div className="glass-panel rounded-[2.5rem] p-6 flex items-center justify-between">
               <div className="flex items-center gap-5">
-                <div className="bg-emerald-500/10 p-3 rounded-2xl">
-                  <Timer className="w-7 h-7 text-emerald-500" />
+                <div className="bg-accent-soft p-3 rounded-2xl">
+                  <Timer className="w-7 h-7 text-accent" />
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-400">Rest Protocol</p>
@@ -1442,9 +1555,9 @@ export default function App() {
               </div>
             </div>
             {/* Progress Bar in Timer */}
-            <div className="absolute bottom-0 left-8 right-8 h-1 bg-emerald-500/10 rounded-full overflow-hidden">
+            <div className="absolute bottom-0 left-8 right-8 h-1 bg-accent-soft rounded-full overflow-hidden">
               <motion.div 
-                className="h-full bg-emerald-500/30"
+                className="h-full bg-accent/30"
                 initial={{ width: '100%' }}
                 animate={{ width: `${(timerSeconds / initialTimerSeconds) * 100}%` }}
                 transition={{ duration: 1, ease: 'linear' }}
@@ -1638,13 +1751,13 @@ function TemplateEditor({
             />
             <button 
               onClick={() => fileInputRef.current?.click()}
-              className="glass-button p-3 rounded-2xl text-emerald-500 active:scale-95 transition-all"
+              className="glass-button p-3 rounded-2xl text-accent active:scale-95 transition-all"
             >
               <Download className="w-5 h-5" />
             </button>
             <button 
               onClick={startNewTemplate}
-              className="bg-emerald-500 text-white p-3 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center"
+              className="bg-accent text-white p-3 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center"
             >
               <Plus className="w-5 h-5" />
             </button>
@@ -1659,7 +1772,7 @@ function TemplateEditor({
                 <div className="absolute inset-y-0 right-0 w-32 rounded-r-[2.5rem] flex flex-col overflow-hidden">
                   <button 
                     onClick={() => handleExport(tpl)}
-                    className="flex-1 w-full flex flex-col items-center justify-center text-white bg-emerald-400 border-b border-white/10"
+                    className="flex-1 w-full flex flex-col items-center justify-center text-white bg-accent border-b border-white/10"
                   >
                     <ExternalLink className="w-5 h-5" />
                     <span className="text-[8px] font-black uppercase tracking-widest">Export</span>
@@ -1668,7 +1781,7 @@ function TemplateEditor({
                     onClick={() => {
                       if (confirm(t('confirmDeleteTemplate'))) onDeleteTemplate(tpl.id);
                     }}
-                    className="flex-1 w-full flex flex-col items-center justify-center text-white bg-red-500"
+                    className="flex-1 w-full flex flex-col items-center justify-center text-white bg-danger"
                   >
                     <Trash2 className="w-5 h-5" />
                     <span className="text-[8px] font-black uppercase tracking-widest">Delete</span>
@@ -1683,7 +1796,7 @@ function TemplateEditor({
                 className="glass-card rounded-[2.5rem] p-8 space-y-6 relative z-10 bg-[#f5f5f5]"
               >
                 {tpl.isDefault && (
-                  <div className="absolute top-0 right-0 bg-emerald-500 text-white pl-4 pr-5 py-1.5 rounded-bl-2xl text-[8px] font-black uppercase tracking-[0.2em] flex items-center justify-center">
+                  <div className="absolute top-0 right-0 bg-accent text-white pl-4 pr-5 py-1.5 rounded-bl-2xl text-[8px] font-black uppercase tracking-[0.2em] flex items-center justify-center">
                     {t('pinned')}
                   </div>
                 )}
@@ -1698,7 +1811,7 @@ function TemplateEditor({
                 <div className="flex gap-3">
                   <button 
                     onClick={() => onApplyTemplate(tpl)}
-                    className="flex-1 py-4 bg-emerald-500 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-md active:scale-95 transition-all"
+                    className="flex-1 py-4 bg-accent text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-md active:scale-95 transition-all"
                   >
                     {t('apply')}
                   </button>
@@ -1737,7 +1850,7 @@ function TemplateEditor({
         <div className="flex gap-2">
           <button 
             onClick={() => editingTemplate && handleExport(editingTemplate)}
-            className="glass-button px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-emerald-500 active:scale-95 transition-all flex items-center gap-2"
+            className="glass-button px-6 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest text-accent active:scale-95 transition-all flex items-center gap-2"
           >
             <ExternalLink className="w-4 h-4" />
             {t('export')}
@@ -1749,7 +1862,7 @@ function TemplateEditor({
                 setView('summary');
               }
             }}
-            className="bg-emerald-500 text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
+            className="bg-accent text-white px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
           >
             {t('save')}
           </button>
@@ -1762,7 +1875,7 @@ function TemplateEditor({
           <input 
             value={editingTemplate?.name || ''}
             onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, name: e.target.value } : null)}
-            className="w-full bg-white/50 border border-zinc-200 rounded-2xl p-4 text-lg font-display font-black text-[#1a1a1a] outline-none focus:border-emerald-500 transition-all"
+            className="w-full bg-white/50 border border-zinc-200 rounded-2xl p-4 text-lg font-display font-black text-[#1a1a1a] outline-none focus:border-accent transition-all"
             placeholder={t('programmeName')}
           />
         </div>
@@ -1771,7 +1884,7 @@ function TemplateEditor({
           {editingTemplate?.programme.map((day, dayIdx) => (
             <div key={day.id} className="relative overflow-hidden rounded-[2.5rem]">
               {/* Delete Action (Behind) */}
-              <div className="absolute inset-y-0 right-0 w-32 bg-red-500 rounded-r-[2.5rem] flex justify-end">
+              <div className="absolute inset-y-0 right-0 w-32 bg-danger rounded-r-[2.5rem] flex justify-end">
                 <button 
                   onClick={() => handleRemoveDay(dayIdx)}
                   className="w-20 h-full flex flex-col items-center justify-center text-white gap-1"
@@ -1792,7 +1905,7 @@ function TemplateEditor({
                   className="w-full p-8 flex items-center justify-between hover:bg-black/5 transition-all"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`p-2 rounded-xl transition-all ${expandedDays.has(day.id) ? 'bg-emerald-500 text-white' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                    <div className={`p-2 rounded-xl transition-all ${expandedDays.has(day.id) ? 'bg-accent text-white' : 'bg-accent-soft text-accent'}`}>
                       <Dumbbell className="w-5 h-5" />
                     </div>
                     <h3 className="text-xl font-display font-black text-[#1a1a1a] uppercase tracking-tighter">{day.name}</h3>
@@ -1820,7 +1933,7 @@ function TemplateEditor({
                             <input 
                               value={day.name}
                               onChange={(e) => handleUpdateDayName(dayIdx, e.target.value)}
-                              className="bg-transparent border-none outline-none text-sm font-display font-black text-emerald-500 uppercase tracking-widest w-full"
+                              className="bg-transparent border-none outline-none text-sm font-display font-black text-accent uppercase tracking-widest w-full"
                             />
                           </div>
                         </div>
@@ -1839,7 +1952,7 @@ function TemplateEditor({
                                 />
                                 <button 
                                   onClick={() => handleRemoveExercise(dayIdx, exIdx)}
-                                  className="text-zinc-300 hover:text-red-500 transition-colors"
+                                  className="text-zinc-300 hover:text-danger transition-colors"
                                 >
                                   <Minus className="w-4 h-4" />
                                 </button>
@@ -1874,7 +1987,7 @@ function TemplateEditor({
                         ))}
                         <button 
                           onClick={() => handleAddExercise(dayIdx)}
-                          className="w-full py-5 border-2 border-dashed border-zinc-200 rounded-3xl text-zinc-400 font-display font-black text-[10px] uppercase tracking-widest hover:border-emerald-500/30 hover:text-emerald-500 transition-all flex items-center justify-center gap-2"
+                          className="w-full py-5 border-2 border-dashed border-zinc-200 rounded-3xl text-zinc-400 font-display font-black text-[10px] uppercase tracking-widest hover:border-accent/30 hover:text-accent transition-all flex items-center justify-center gap-2"
                         >
                           <Plus className="w-4 h-4" />
                           {t('addExercise')}
@@ -1891,7 +2004,7 @@ function TemplateEditor({
           {editingTemplate && editingTemplate.programme.length < 6 && (
             <button 
               onClick={handleAddDay}
-              className="w-full py-8 border-2 border-dashed border-emerald-500/20 rounded-[2.5rem] text-emerald-500/40 font-display font-black text-xs uppercase tracking-[0.3em] hover:bg-emerald-500/5 hover:text-emerald-500 hover:border-emerald-500/40 transition-all flex flex-col items-center gap-3"
+              className="w-full py-8 border-2 border-dashed border-accent/20 rounded-[2.5rem] text-accent/40 font-display font-black text-xs uppercase tracking-[0.3em] hover:bg-accent/5 hover:text-accent hover:border-accent/40 transition-all flex flex-col items-center gap-3"
             >
               <Plus className="w-6 h-6" />
               {t('addTrainingDay')}
@@ -1906,7 +2019,7 @@ function TemplateEditor({
                   setView('summary');
                 }
               }}
-              className="w-full py-6 bg-emerald-500 text-white rounded-[2.5rem] font-display font-black text-xs uppercase tracking-[0.3em] shadow-xl shadow-emerald-500/20 active:scale-95 transition-all flex items-center justify-center gap-3"
+              className="w-full py-6 bg-accent text-white rounded-[2.5rem] font-display font-black text-xs uppercase tracking-[0.3em] shadow-xl shadow-accent/20 active:scale-95 transition-all flex items-center justify-center gap-3"
             >
               <Save className="w-5 h-5" />
               {t('save')}
@@ -1951,7 +2064,7 @@ function NumberPad({ value, onUpdate, onDone, placeholder }: any) {
           </div>
           <button 
             onClick={onDone}
-            className="bg-emerald-500 text-white px-10 py-4 rounded-2xl font-display font-black uppercase tracking-widest shadow-[0_10px_20px_rgba(16,185,129,0.2)] active:scale-95 transition-all"
+            className="bg-accent text-white px-10 py-4 rounded-2xl font-display font-black uppercase tracking-widest shadow-[0_10px_20px_rgba(15,15,15,0.2)] active:scale-95 transition-all"
           >
             Done
           </button>
@@ -1961,7 +2074,7 @@ function NumberPad({ value, onUpdate, onDone, placeholder }: any) {
             <button
               key={key}
               onClick={() => handleKey(key)}
-              className="h-14 glass-button rounded-xl text-lg font-display font-black text-[#1a1a1a] active:bg-emerald-500 active:text-white transition-all flex items-center justify-center"
+              className="h-14 glass-button rounded-xl text-lg font-display font-black text-[#1a1a1a] active:bg-accent active:text-white transition-all flex items-center justify-center"
             >
               {key}
             </button>
@@ -1989,6 +2102,8 @@ interface ExerciseCardProps {
   onRemoveSet: () => void;
   dragControls: any;
   onOpenInput: (idx: number, field: 'weight' | 'reps', val: string, placeholder: string) => void;
+  isExpanded: boolean;
+  onToggleExpand: () => void;
 }
 
 function ExerciseCard({ 
@@ -2000,9 +2115,10 @@ function ExerciseCard({
   onAddSet,
   onRemoveSet,
   dragControls,
-  onOpenInput
+  onOpenInput,
+  isExpanded,
+  onToggleExpand
 }: ExerciseCardProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
   const variation = log?.variation || prevLog?.variation || exercise.options[0];
   const sets = log?.sets || Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }));
 
@@ -2013,7 +2129,7 @@ function ExerciseCard({
     <motion.div 
       layout
       className={`glass-card rounded-[2.5rem] overflow-hidden transition-all duration-500 ${
-        isFullyCompleted ? 'ring-2 ring-emerald-500/20' : ''
+        isFullyCompleted ? 'ring-2 ring-accent/20' : ''
       }`}
     >
       {/* Accordion Header */}
@@ -2047,13 +2163,13 @@ function ExerciseCard({
           <GripVertical className="w-5 h-5" />
         </div>
         <button 
-          onClick={() => setIsExpanded(!isExpanded)}
+          onClick={onToggleExpand}
           className="flex-1 text-left p-8 pl-4 flex justify-between items-center"
         >
           <div className="space-y-1">
             <div className="flex items-center gap-3">
               <h3 className="text-[15px] font-display font-bold tracking-tight text-[#1a1a1a]">{exercise.name}</h3>
-              {isFullyCompleted && <CheckCircle className="w-5 h-5 text-emerald-500 fill-emerald-500/10" />}
+              {isFullyCompleted && <CheckCircle className="w-5 h-5 text-accent fill-accent/10" />}
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
@@ -2083,14 +2199,14 @@ function ExerciseCard({
                   <div className="flex items-center gap-2">
                     <button 
                       onClick={(e) => { e.stopPropagation(); onRemoveSet(); }}
-                      className="w-8 h-8 glass-button rounded-lg flex items-center justify-center text-zinc-400 hover:text-red-500"
+                      className="w-8 h-8 glass-button rounded-lg flex items-center justify-center text-zinc-400 hover:text-danger"
                     >
                       -
                     </button>
                     <span className="text-[10px] font-mono font-bold text-zinc-600">{sets.length}</span>
                     <button 
                       onClick={(e) => { e.stopPropagation(); onAddSet(); }}
-                      className="w-8 h-8 glass-button rounded-lg flex items-center justify-center text-zinc-400 hover:text-emerald-500"
+                      className="w-8 h-8 glass-button rounded-lg flex items-center justify-center text-zinc-400 hover:text-accent"
                     >
                       +
                     </button>
@@ -2098,7 +2214,7 @@ function ExerciseCard({
                 </div>
                 <div className="relative">
                   <select 
-                    className="appearance-none glass-button text-[9px] font-bold uppercase tracking-widest rounded-xl py-2 pl-4 pr-10 focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all cursor-pointer text-[#1a1a1a]"
+                    className="appearance-none glass-button text-[9px] font-bold uppercase tracking-widest rounded-xl py-2 pl-4 pr-10 focus:ring-2 focus:ring-accent/20 outline-none transition-all cursor-pointer text-[#1a1a1a]"
                     value={variation}
                     onChange={(e) => onUpdateVariation(e.target.value)}
                   >
@@ -2114,7 +2230,7 @@ function ExerciseCard({
                 {sets.map((set, i) => (
                   <div key={i} className="flex gap-4 items-center">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[10px] font-mono font-bold border transition-all duration-500 ${
-                      set.completed ? 'bg-emerald-500 border-emerald-400 text-white shadow-[0_5px_15px_rgba(16,185,129,0.3)]' : 'glass-inset text-zinc-300'
+                      set.completed ? 'bg-accent border-accent text-white shadow-[0_5px_15px_rgba(15,15,15,0.3)]' : 'glass-inset text-zinc-300'
                     }`}>
                       {String(i + 1).padStart(2, '0')}
                     </div>
@@ -2125,7 +2241,7 @@ function ExerciseCard({
                             const placeholder = sets[i-1]?.weight || prevLog?.sets[i]?.weight || "0.0";
                             onOpenInput(i, 'weight', set.weight, placeholder);
                           }}
-                          className="w-full glass-inset rounded-2xl py-3 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-[#1a1a1a] min-h-[44px] flex items-center justify-center"
+                          className="w-full glass-inset rounded-2xl py-3 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-accent/20 outline-none transition-all text-[#1a1a1a] min-h-[44px] flex items-center justify-center"
                         >
                           {set.weight || <span className="text-zinc-400">{sets[i-1]?.weight || prevLog?.sets[i]?.weight || "0.0"}</span>}
                         </button>
@@ -2137,7 +2253,7 @@ function ExerciseCard({
                             const placeholder = sets[i-1]?.reps || prevLog?.sets[i]?.reps || "0";
                             onOpenInput(i, 'reps', set.reps, placeholder);
                           }}
-                          className="w-full glass-inset rounded-2xl py-3 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all text-[#1a1a1a] min-h-[44px] flex items-center justify-center"
+                          className="w-full glass-inset rounded-2xl py-3 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-accent/20 outline-none transition-all text-[#1a1a1a] min-h-[44px] flex items-center justify-center"
                         >
                           {set.reps || <span className="text-zinc-400">{sets[i-1]?.reps || prevLog?.sets[i]?.reps || "0"}</span>}
                         </button>
@@ -2148,8 +2264,8 @@ function ExerciseCard({
                       onClick={() => onUpdateSet(i, 'completed', !set.completed)}
                       className={`p-3 rounded-2xl transition-all active:scale-90 ${
                         set.completed 
-                          ? 'bg-emerald-500 text-white shadow-[0_10px_20px_rgba(16,185,129,0.3)]' 
-                          : 'glass-button text-zinc-300 hover:text-emerald-500'
+                          ? 'bg-accent text-white shadow-[0_10px_20px_rgba(15,15,15,0.3)]' 
+                          : 'glass-button text-zinc-300 hover:text-accent'
                       }`}
                     >
                       <CheckCircle className="w-6 h-6" />

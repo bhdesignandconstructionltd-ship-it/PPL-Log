@@ -5,6 +5,9 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Inter", sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  --color-accent: #0F0F0F;
+  --color-accent-soft: #F4F4F4;
+  --color-danger: #9B9B9B;
 }
 
 @layer base {
