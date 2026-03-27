@@ -301,6 +301,7 @@ export default function App() {
   const [timerActive, setTimerActive] = useState(false);
   const [initialTimerSeconds, setInitialTimerSeconds] = useState(60);
   const [timerEndTime, setTimerEndTime] = useState<number | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   // Input State
   const [activeInput, setActiveInput] = useState<{
@@ -313,6 +314,33 @@ export default function App() {
 
   const today = new Date().toISOString().split('T')[0];
   const currentDay = programme[activeDayIndex];
+
+  useEffect(() => {
+    if (timerActive && timerSeconds !== null) {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: `Rest Timer: ${Math.floor(timerSeconds / 60)}:${String(timerSeconds % 60).padStart(2, '0')}`,
+          artist: 'PPL Pro Training',
+          album: currentDay?.name || 'Workout',
+          artwork: [
+            { src: 'https://picsum.photos/seed/workout/512/512', sizes: '512x512', type: 'image/png' }
+          ]
+        });
+        navigator.mediaSession.playbackState = 'playing';
+
+        if (audioRef.current && audioRef.current.paused) {
+          audioRef.current.play().catch(() => {});
+        }
+      }
+    } else {
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.playbackState = 'none';
+      }
+      if (audioRef.current && !audioRef.current.paused) {
+        audioRef.current.pause();
+      }
+    }
+  }, [timerActive, timerSeconds, currentDay]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(logs));
@@ -879,15 +907,15 @@ export default function App() {
 
               {/* Stats Overview */}
               <div className="grid grid-cols-3 gap-5 mb-12 items-stretch">
-                <div className="glass-card rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center">
+                <div className="glass-card rounded-[2.5rem] py-[18px] px-6 flex flex-col items-center justify-center text-center">
                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">{t('exercises')}</p>
                   <p className="text-2xl font-display font-black font-mono text-[#1a1a1a]">{currentDay.exercises.length}</p>
                 </div>
-                <div className="glass-card rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center">
+                <div className="glass-card rounded-[2.5rem] py-[18px] px-6 flex flex-col items-center justify-center text-center">
                   <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mb-2 whitespace-nowrap">{t('totalSets')}</p>
                   <p className="text-2xl font-display font-black font-mono text-[#1a1a1a]">{currentDay.exercises.reduce((acc, ex) => acc + ex.sets, 0)}</p>
                 </div>
-                <div className="glass-card rounded-[2.5rem] p-6 flex flex-col items-center justify-center text-center">
+                <div className="glass-card rounded-[2.5rem] py-[18px] px-6 flex flex-col items-center justify-center text-center">
                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">{t('progress')}</p>
                   <p className="text-2xl font-display font-black font-mono text-accent">{Math.round(workoutProgress)}%</p>
                 </div>
@@ -1409,6 +1437,9 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Hidden silent audio for MediaSession */}
+      <audio ref={audioRef} loop src="data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=" />
 
       {/* Bottom Nav */}
       <div className="fixed bottom-0 left-0 right-0 z-30 pointer-events-none">
