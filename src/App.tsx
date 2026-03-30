@@ -531,8 +531,9 @@ export default function App() {
       .filter(d => d < today)
       .sort((a, b) => b.localeCompare(a));
     
-    if (sortedDates.length > 0) {
-      return logs[sortedDates[0]][currentDay.id];
+    const lastWorkoutDate = sortedDates.find(date => logs[date][currentDay.id]);
+    if (lastWorkoutDate) {
+      return logs[lastWorkoutDate][currentDay.id];
     }
     return null;
   }, [logs, today, currentDay.id]);
