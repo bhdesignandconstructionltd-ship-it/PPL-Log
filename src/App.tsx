@@ -1921,7 +1921,7 @@ function TemplateEditor({
           >
             <ArrowLeft className="w-5 h-5 text-zinc-400" />
           </button>
-          <h1 className="text-2xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">{t('editProgramme')}</h1>
+          <h1 className="text-lg font-display font-black tracking-tighter uppercase text-[#1a1a1a]">{t('editProgramme')}</h1>
         </div>
         <div className="flex gap-2">
           <button 
@@ -1951,7 +1951,7 @@ function TemplateEditor({
           <input 
             value={editingTemplate?.name || ''}
             onChange={(e) => setEditingTemplate(prev => prev ? { ...prev, name: e.target.value } : null)}
-            className="w-full bg-white/50 border border-zinc-200 rounded-2xl p-4 text-lg font-display font-black text-[#1a1a1a] outline-none focus:border-accent transition-all"
+            className="w-full bg-white/50 border border-zinc-200 rounded-2xl p-4 text-[15px] font-display font-bold text-[#1a1a1a] outline-none focus:border-accent transition-all"
             placeholder={t('programmeName')}
           />
         </div>
@@ -1981,10 +1981,7 @@ function TemplateEditor({
                   className="w-full p-8 flex items-center justify-between hover:bg-black/5 transition-all"
                 >
                   <div className="flex items-center gap-4">
-                    <div className={`p-2 rounded-xl transition-all ${expandedDays.has(day.id) ? 'bg-accent text-white' : 'bg-accent-soft text-accent'}`}>
-                      <Dumbbell className="w-5 h-5" />
-                    </div>
-                    <h3 className="text-xl font-display font-black text-[#1a1a1a] uppercase tracking-tighter">{day.name}</h3>
+                    <h3 className="text-[15px] font-display font-bold text-[#1a1a1a] uppercase tracking-tight">{day.name}</h3>
                   </div>
                   <div className="flex items-center gap-4">
                     <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">{day.exercises.length} {t('exercises')}</span>
@@ -2009,7 +2006,7 @@ function TemplateEditor({
                             <input 
                               value={day.name}
                               onChange={(e) => handleUpdateDayName(dayIdx, e.target.value)}
-                              className="bg-transparent border-none outline-none text-sm font-display font-black text-accent uppercase tracking-widest w-full"
+                              className="bg-transparent border-none outline-none text-[13px] font-display font-bold text-accent uppercase tracking-widest w-full"
                             />
                           </div>
                         </div>
@@ -2023,7 +2020,7 @@ function TemplateEditor({
                                 <input 
                                   value={ex.name}
                                   onChange={(e) => handleUpdateExercise(dayIdx, exIdx, 'name', e.target.value)}
-                                  className="bg-transparent border-none outline-none text-sm font-display font-black text-[#1a1a1a] uppercase tracking-widest w-full"
+                                  className="bg-transparent border-none outline-none text-[13px] font-display font-bold text-[#1a1a1a] uppercase tracking-widest w-full"
                                   placeholder={t('exerciseName')}
                                 />
                                 <button 
