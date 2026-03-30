@@ -58,6 +58,7 @@ import {
   isToday,
   parseISO
 } from 'date-fns';
+import { LoadingScreen } from './components/LoadingScreen';
 import { PPL_PROGRAMME } from './data/programme';
 import { DailyLog, WorkoutLog, SetLog, Exercise, WorkoutDay, SavedTemplate } from './types';
 
@@ -66,6 +67,7 @@ const DAY_INDEX_KEY = 'ppl_pro_day_index';
 const SETTINGS_KEY = 'ppl_pro_settings';
 const PROGRAMME_KEY = 'ppl_pro_custom_programme';
 const SAVED_TEMPLATES_KEY = 'ppl_pro_saved_templates';
+const EQUIPMENT_OPTIONS = ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'];
 
 function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updateSet, updateVariation, addSet, removeSet, onReorder, onOpenInput, isExpanded, onToggleExpand }: any) {
   const controls = useDragControls();
@@ -83,7 +85,7 @@ function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updat
         onUpdateSet={(setIdx: number, field: any, val: any) => updateSet(ex, setIdx, field, val)}
         onUpdateVariation={(val: string) => updateVariation(ex.name, val)}
         onAddSet={() => addSet(ex)}
-        onRemoveSet={() => removeSet(ex)}
+        onRemoveSet={(idx?: number) => removeSet(ex, idx)}
         dragControls={controls}
         onOpenInput={onOpenInput}
         isExpanded={isExpanded}
@@ -94,6 +96,13 @@ function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updat
 }
 
 export default function App() {
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsLoading(false), 4000);
+    return () => clearTimeout(timer);
+  }, []);
+
   const [settings, setSettings] = useState(() => {
     const saved = localStorage.getItem(SETTINGS_KEY);
     return saved ? JSON.parse(saved) : {
@@ -394,42 +403,32 @@ export default function App() {
   const updateSet = (exercise: Exercise, setIndex: number, field: keyof SetLog, value: string | boolean) => {
     const exerciseName = exercise.name;
     setLogs(prev => {
-      const newLogs = { ...prev };
-      if (!newLogs[today]) newLogs[today] = {};
-      if (!newLogs[today][currentDay.id]) newLogs[today][currentDay.id] = {};
-      
-      const workoutLog = newLogs[today][currentDay.id];
-      if (!workoutLog[exerciseName]) {
-        const prevWorkoutData = getPreviousWorkoutData?.[exerciseName];
-        workoutLog[exerciseName] = {
-          variation: prevWorkoutData?.variation || currentDay.exercises.find(e => e.name === exerciseName)?.options[0] || '',
-          sets: Array(currentDay.exercises.find(e => e.name === exerciseName)?.sets || 0).fill(null).map((_, i) => ({
-            weight: '',
-            reps: '',
-            completed: false
-          }))
-        };
-      }
+      const dayLogs = prev[today] || {};
+      const workoutLogs = dayLogs[currentDay.id] || {};
+      const exerciseLog = workoutLogs[exerciseName] || {
+        variation: getPreviousWorkoutData?.[exerciseName]?.variation || EQUIPMENT_OPTIONS[0],
+        sets: Array(exercise.sets).fill(null).map(() => ({
+          weight: '',
+          reps: '',
+          completed: false
+        }))
+      };
 
-      const exerciseLog = workoutLog[exerciseName];
+      const newSets = [...exerciseLog.sets];
+      const currentSet = { ...newSets[setIndex] };
       
       // If marking as completed, check if we need to use placeholders
       if (field === 'completed' && value === true) {
-        const currentSet = exerciseLog.sets[setIndex];
-        const prevWorkoutData = getPreviousWorkoutData?.[exerciseName];
-        
         if (!currentSet.weight) {
-          const placeholderWeight = exerciseLog.sets[setIndex - 1]?.weight || prevWorkoutData?.sets[setIndex]?.weight || "0";
-          currentSet.weight = placeholderWeight;
+          currentSet.weight = newSets[setIndex - 1]?.weight || getPreviousWorkoutData?.[exerciseName]?.sets[setIndex]?.weight || "0";
         }
         if (!currentSet.reps) {
-          const placeholderReps = exerciseLog.sets[setIndex - 1]?.reps || prevWorkoutData?.sets[setIndex]?.reps || "0";
-          currentSet.reps = placeholderReps;
+          currentSet.reps = newSets[setIndex - 1]?.reps || getPreviousWorkoutData?.[exerciseName]?.sets[setIndex]?.reps || "0";
         }
       }
 
-      exerciseLog.sets[setIndex] = {
-        ...exerciseLog.sets[setIndex],
+      newSets[setIndex] = {
+        ...currentSet,
         [field]: value
       };
 
@@ -438,55 +437,86 @@ export default function App() {
         startRestTimer(exercise);
       }
 
-      return newLogs;
+      return {
+        ...prev,
+        [today]: {
+          ...dayLogs,
+          [currentDay.id]: {
+            ...workoutLogs,
+            [exerciseName]: {
+              ...exerciseLog,
+              sets: newSets
+            }
+          }
+        }
+      };
     });
   };
 
   const updateVariation = (exerciseName: string, variation: string) => {
     setLogs(prev => {
-      const newLogs = { ...prev };
-      if (!newLogs[today]) newLogs[today] = {};
-      if (!newLogs[today][currentDay.id]) newLogs[today][currentDay.id] = {};
-      
-      const workoutLog = newLogs[today][currentDay.id];
-      if (!workoutLog[exerciseName]) {
-        workoutLog[exerciseName] = {
-          variation,
-          sets: Array(currentDay.exercises.find(e => e.name === exerciseName)?.sets || 0).fill(null).map(() => ({
-            weight: '',
-            reps: '',
-            completed: false
-          }))
-        };
-      } else {
-        workoutLog[exerciseName].variation = variation;
-      }
+      const dayLogs = prev[today] || {};
+      const workoutLogs = dayLogs[currentDay.id] || {};
+      const exerciseLog = workoutLogs[exerciseName] || {
+        variation,
+        sets: Array(programme.find(d => d.id === currentDay.id)?.exercises.find(e => e.name === exerciseName)?.sets || 0).fill(null).map(() => ({
+          weight: '',
+          reps: '',
+          completed: false
+        }))
+      };
 
-      return newLogs;
+      return {
+        ...prev,
+        [today]: {
+          ...dayLogs,
+          [currentDay.id]: {
+            ...workoutLogs,
+            [exerciseName]: {
+              ...exerciseLog,
+              variation
+            }
+          }
+        }
+      };
     });
   };
 
   const updateExerciseOrder = (newOrder: string[]) => {
     if (!currentDay) return;
     setLogs(prev => {
-      const newLogs = { ...prev };
-      if (!newLogs[today]) newLogs[today] = {};
-      if (!newLogs[today][currentDay.id]) newLogs[today][currentDay.id] = {};
+      const dayLogs = prev[today] || {};
+      const workoutLogs = dayLogs[currentDay.id] || {};
       
-      newLogs[today][currentDay.id].exerciseOrder = newOrder;
-      return newLogs;
+      return {
+        ...prev,
+        [today]: {
+          ...dayLogs,
+          [currentDay.id]: {
+            ...workoutLogs,
+            exerciseOrder: newOrder
+          }
+        }
+      };
     });
   };
 
   const updateNotes = (notes: string) => {
     if (!currentDay) return;
     setLogs(prev => {
-      const newLogs = { ...prev };
-      if (!newLogs[today]) newLogs[today] = {};
-      if (!newLogs[today][currentDay.id]) newLogs[today][currentDay.id] = {};
+      const dayLogs = prev[today] || {};
+      const workoutLogs = dayLogs[currentDay.id] || {};
       
-      newLogs[today][currentDay.id].notes = notes;
-      return newLogs;
+      return {
+        ...prev,
+        [today]: {
+          ...dayLogs,
+          [currentDay.id]: {
+            ...workoutLogs,
+            notes
+          }
+        }
+      };
     });
   };
 
@@ -515,8 +545,9 @@ export default function App() {
     let completedSets = 0;
     
     currentDay.exercises.forEach(ex => {
-      totalSets += ex.sets;
       const exLog = dayLog[ex.name];
+      const sets = exLog?.sets || Array(ex.sets).fill(null);
+      totalSets += sets.length;
       if (exLog) {
         completedSets += exLog.sets.filter(s => s.completed).length;
       }
@@ -659,58 +690,63 @@ export default function App() {
   const addSet = (exercise: Exercise) => {
     const exerciseName = exercise.name;
     setLogs(prev => {
-      const newLogs = { ...prev };
-      if (!newLogs[today]) newLogs[today] = {};
-      if (!newLogs[today][currentDay.id]) newLogs[today][currentDay.id] = {};
-      
-      const workoutLog = newLogs[today][currentDay.id];
-      if (!workoutLog[exerciseName]) {
-        const prevVariation = getPreviousWorkoutData?.[exerciseName]?.variation;
-        workoutLog[exerciseName] = {
-          variation: prevVariation || exercise.options[0] || '',
-          sets: Array(exercise.sets).fill(null).map(() => ({
-            weight: '',
-            reps: '',
-            completed: false
-          }))
-        };
-      }
+      const dayLogs = prev[today] || {};
+      const workoutLogs = dayLogs[currentDay.id] || {};
+      const exerciseLog = workoutLogs[exerciseName] || {
+        variation: getPreviousWorkoutData?.[exerciseName]?.variation || EQUIPMENT_OPTIONS[0],
+        sets: Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }))
+      };
 
-      workoutLog[exerciseName].sets.push({
-        weight: '',
-        reps: '',
-        completed: false
-      });
-
-      return newLogs;
+      return {
+        ...prev,
+        [today]: {
+          ...dayLogs,
+          [currentDay.id]: {
+            ...workoutLogs,
+            [exerciseName]: {
+              ...exerciseLog,
+              sets: [...exerciseLog.sets, { weight: '', reps: '', completed: false }]
+            }
+          }
+        }
+      };
     });
   };
 
-  const removeSet = (exercise: Exercise) => {
+  const removeSet = (exercise: Exercise, index?: number) => {
     const exerciseName = exercise.name;
     setLogs(prev => {
-      const newLogs = { ...prev };
-      if (!newLogs[today]) newLogs[today] = {};
-      if (!newLogs[today][currentDay.id]) newLogs[today][currentDay.id] = {};
-      
-      const workoutLog = newLogs[today][currentDay.id];
-      if (!workoutLog[exerciseName]) {
-        const prevVariation = getPreviousWorkoutData?.[exerciseName]?.variation;
-        workoutLog[exerciseName] = {
-          variation: prevVariation || exercise.options[0] || '',
-          sets: Array(exercise.sets).fill(null).map(() => ({
-            weight: '',
-            reps: '',
-            completed: false
-          }))
+      const dayLogs = prev[today] || {};
+      const workoutLogs = dayLogs[currentDay.id] || {};
+      const exerciseLog = workoutLogs[exerciseName] || {
+        variation: getPreviousWorkoutData?.[exerciseName]?.variation || EQUIPMENT_OPTIONS[0],
+        sets: Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }))
+      };
+
+      if (exerciseLog.sets.length > 1) {
+        const newSets = [...exerciseLog.sets];
+        if (index !== undefined) {
+          newSets.splice(index, 1);
+        } else {
+          newSets.pop();
+        }
+
+        return {
+          ...prev,
+          [today]: {
+            ...dayLogs,
+            [currentDay.id]: {
+              ...workoutLogs,
+              [exerciseName]: {
+                ...exerciseLog,
+                sets: newSets
+              }
+            }
+          }
         };
       }
 
-      if (workoutLog[exerciseName].sets.length > 1) {
-        workoutLog[exerciseName].sets.pop();
-      }
-
-      return newLogs;
+      return prev;
     });
   };
 
@@ -782,6 +818,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen selection:bg-accent/30 font-sans text-[#1a1a1a] transition-colors duration-300">
+      <AnimatePresence>
+        {isLoading && <LoadingScreen key="loading" />}
+      </AnimatePresence>
       <AnimatePresence mode="wait">
         {activeTab === 'workout' && (
           <motion.div
@@ -914,7 +953,12 @@ export default function App() {
                 </div>
                 <div className="glass-card rounded-[2.5rem] py-[18px] px-6 flex flex-col items-center justify-center text-center">
                   <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-widest mb-2 whitespace-nowrap">{t('totalSets')}</p>
-                  <p className="text-2xl font-display font-black font-mono text-[#1a1a1a]">{currentDay.exercises.reduce((acc, ex) => acc + ex.sets, 0)}</p>
+                  <p className="text-2xl font-display font-black font-mono text-[#1a1a1a]">
+                    {currentDay.exercises.reduce((acc, ex) => {
+                      const exLog = logs[today]?.[currentDay.id]?.[ex.name];
+                      return acc + (exLog?.sets.length || ex.sets);
+                    }, 0)}
+                  </p>
                 </div>
                 <div className="glass-card rounded-[2.5rem] py-[18px] px-6 flex flex-col items-center justify-center text-center">
                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">{t('progress')}</p>
@@ -2131,7 +2175,7 @@ interface ExerciseCardProps {
   onUpdateSet: (idx: number, field: keyof SetLog, val: any) => void;
   onUpdateVariation: (val: string) => void;
   onAddSet: () => void;
-  onRemoveSet: () => void;
+  onRemoveSet: (idx?: number) => void;
   dragControls: any;
   onOpenInput: (idx: number, field: 'weight' | 'reps', val: string, placeholder: string) => void;
   isExpanded: boolean;
@@ -2151,7 +2195,7 @@ function ExerciseCard({
   isExpanded,
   onToggleExpand
 }: ExerciseCardProps) {
-  const variation = log?.variation || prevLog?.variation || exercise.options[0];
+  const variation = log?.variation || prevLog?.variation || EQUIPMENT_OPTIONS[0];
   const sets = log?.sets || Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }));
 
   const completedCount = sets.filter(s => s.completed).length;
@@ -2228,40 +2272,25 @@ function ExerciseCard({
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-4">
                   <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Variation</p>
-                  <div className="flex items-center gap-2">
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); onRemoveSet(); }}
-                      className="w-8 h-8 glass-button rounded-lg flex items-center justify-center text-zinc-400 hover:text-danger"
-                    >
-                      -
-                    </button>
-                    <span className="text-[10px] font-mono font-bold text-zinc-600">{sets.length}</span>
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); onAddSet(); }}
-                      className="w-8 h-8 glass-button rounded-lg flex items-center justify-center text-zinc-400 hover:text-accent"
-                    >
-                      +
-                    </button>
-                  </div>
                 </div>
                 <div className="relative">
                   <select 
-                    className="appearance-none glass-button text-[9px] font-bold uppercase tracking-widest rounded-xl py-2 pl-4 pr-10 focus:ring-2 focus:ring-accent/20 outline-none transition-all cursor-pointer text-[#1a1a1a]"
+                    className="appearance-none glass-inset text-[10px] font-bold uppercase tracking-[0.1em] rounded-xl py-2.5 pl-4 pr-10 focus:ring-2 focus:ring-accent/20 outline-none transition-all cursor-pointer text-[#1a1a1a] border-none"
                     value={variation}
                     onChange={(e) => onUpdateVariation(e.target.value)}
                   >
-                    {exercise.options.map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    {EQUIPMENT_OPTIONS.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                   </select>
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <ChevronDown className="w-3 h-3 text-zinc-400" />
+                    <ChevronDown className="w-3.5 h-3.5 text-zinc-400" />
                   </div>
                 </div>
               </div>
 
               <div className="space-y-4">
                 {sets.map((set, i) => (
-                  <div key={i} className="flex gap-4 items-center">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-[10px] font-mono font-bold border transition-all duration-500 ${
+                  <div key={i} className="flex gap-3 items-center">
+                    <div className={`w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-[10px] font-mono font-bold border transition-all duration-500 ${
                       set.completed ? 'bg-accent border-accent text-white shadow-[0_5px_15px_rgba(15,15,15,0.3)]' : 'glass-inset text-zinc-300'
                     }`}>
                       {String(i + 1).padStart(2, '0')}
@@ -2292,18 +2321,33 @@ function ExerciseCard({
                         {i === 0 && <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[8px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Reps</span>}
                       </div>
                     </div>
-                    <button 
-                      onClick={() => onUpdateSet(i, 'completed', !set.completed)}
-                      className={`p-3 rounded-2xl transition-all active:scale-90 ${
-                        set.completed 
-                          ? 'bg-accent text-white shadow-[0_10px_20px_rgba(15,15,15,0.3)]' 
-                          : 'glass-button text-zinc-300 hover:text-accent'
-                      }`}
-                    >
-                      <CheckCircle className="w-6 h-6" />
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => onUpdateSet(i, 'completed', !set.completed)}
+                        className={`p-2 rounded-xl transition-all active:scale-90 ${
+                          set.completed 
+                            ? 'bg-accent text-white shadow-[0_10px_20px_rgba(15,15,15,0.3)]' 
+                            : 'glass-button text-zinc-300 hover:text-accent'
+                        }`}
+                      >
+                        <CheckCircle className="w-5 h-5" />
+                      </button>
+                      <button 
+                        onClick={() => onRemoveSet(i)}
+                        className="p-2 rounded-xl glass-button text-zinc-300 hover:text-danger transition-all active:scale-90"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
+                <button 
+                  onClick={onAddSet}
+                  className="w-full py-4 glass-button rounded-2xl flex items-center justify-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] hover:text-accent transition-all active:scale-95"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Set
+                </button>
               </div>
             </div>
           </motion.div>
