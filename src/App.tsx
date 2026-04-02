@@ -28,6 +28,7 @@ import {
   Layout,
   Plus,
   Minus,
+  Pin,
   Download,
   Upload,
   ExternalLink,
@@ -59,7 +60,7 @@ import {
   parseISO
 } from 'date-fns';
 import { LoadingScreen } from './components/LoadingScreen';
-import { PPL_PROGRAMME } from './data/programme';
+import { PPL_PROGRAMME, UPPER_LOWER_PROGRAMME } from './data/programme';
 import { DailyLog, WorkoutLog, SetLog, Exercise, WorkoutDay, SavedTemplate } from './types';
 
 const STORAGE_KEY = 'ppl_pro_logs';
@@ -92,6 +93,53 @@ function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updat
         onToggleExpand={onToggleExpand}
       />
     </Reorder.Item>
+  );
+}
+
+function ConfirmationModal({ isOpen, title, message, onConfirm, onCancel, t }: any) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm"
+          onClick={onCancel}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0, y: 20 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            className="glass-card w-full max-w-sm rounded-[2.5rem] p-8 space-y-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-2 text-center">
+              <h3 className="text-xl font-display font-black text-[#1a1a1a] uppercase tracking-tighter">
+                {title}
+              </h3>
+              <p className="text-zinc-500 text-sm font-medium leading-relaxed">
+                {message}
+              </p>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button
+                onClick={onCancel}
+                className="flex-1 py-4 glass-button rounded-2xl text-[10px] font-black uppercase tracking-widest text-zinc-400 active:scale-95 transition-all"
+              >
+                {t('cancel')}
+              </button>
+              <button
+                onClick={onConfirm}
+                className="flex-1 py-4 bg-accent text-white rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all"
+              >
+                {t('confirm')}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -181,7 +229,10 @@ export default function App() {
         confirmPurge: "Purge all data for today?",
         confirmExport: "Export all data as JSON?",
         confirmDeleteTemplate: "Delete this template?",
-        confirmApplyTemplate: "Apply this template? This will overwrite your current programme."
+        confirmApplyTemplate: "Apply this template? This will overwrite your current programme.",
+        defaultUpperLowerProgramme: "DEFAULT UPPER LOWER",
+        cancel: "CANCEL",
+        confirm: "CONFIRM"
       },
       zh: {
         repArchive: "訓練紀錄",
@@ -249,7 +300,10 @@ export default function App() {
         confirmPurge: "清除今天的所有數據？",
         confirmExport: "匯出所有數據為 JSON？",
         confirmDeleteTemplate: "刪除此計畫？",
-        confirmApplyTemplate: "套用此計畫？這將覆蓋你目前的訓練計畫。"
+        confirmApplyTemplate: "套用此計畫？這將覆蓋你目前的訓練計畫。",
+        defaultUpperLowerProgramme: "預設 上下肢計畫",
+        cancel: "取消",
+        confirm: "確認"
       }
     };
     return translations[settings.language]?.[key] || translations['en'][key] || key;
@@ -257,8 +311,8 @@ export default function App() {
 
   const tabs = [
     { id: 'workout', icon: Dumbbell, label: t('training') },
-    { id: 'template', icon: Layout, label: t('programmes') },
     { id: 'history', icon: HistoryIcon, label: t('history') },
+    { id: 'template', icon: Layout, label: t('programmes') },
     { id: 'settings', icon: Settings, label: t('settings') },
   ];
 
@@ -279,15 +333,18 @@ export default function App() {
   });
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>(() => {
     const saved = localStorage.getItem(SAVED_TEMPLATES_KEY);
-    const defaultTemplates = [
-      { id: 'default-ppl', name: t('defaultPplProgramme'), programme: PPL_PROGRAMME, isDefault: true }
+    const defaultTemplates: SavedTemplate[] = [
+      { id: 'default-ppl', name: t('defaultPplProgramme'), programme: PPL_PROGRAMME, isDefault: true, pinned: true },
+      { id: 'default-upper-lower', name: t('defaultUpperLowerProgramme'), programme: UPPER_LOWER_PROGRAMME, isDefault: true, pinned: true }
     ];
     if (!saved) return defaultTemplates;
     
     try {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) {
-        return parsed.map((tpl: any) => ({
+        // Merge default templates with saved ones, ensuring defaults are always present
+        const customTemplates = parsed.filter((tpl: any) => !defaultTemplates.some(dt => dt.id === tpl.id));
+        return [...defaultTemplates, ...customTemplates].map((tpl: any) => ({
           ...tpl,
           programme: tpl.programme || tpl.program || []
         }));
@@ -320,6 +377,30 @@ export default function App() {
     value: string;
     placeholder: string;
   } | null>(null);
+
+  const [confirmModal, setConfirmModal] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {}
+  });
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void) => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        onConfirm();
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
 
   const today = new Date().toISOString().split('T')[0];
   const currentDay = programme[activeDayIndex];
@@ -570,13 +651,13 @@ export default function App() {
   }, [logs, today, currentDay.id]);
 
   const clearToday = () => {
-    if (confirm(t('confirmPurge'))) {
+    showConfirm(t('confirm'), t('confirmPurge'), () => {
       setLogs(prev => {
         const newLogs = { ...prev };
         delete newLogs[today];
         return newLogs;
       });
-    }
+    });
   };
 
   const calculateTotalWeight = (workoutLog: WorkoutLog) => {
@@ -633,11 +714,14 @@ export default function App() {
   }, [logs]);
 
   const cycleStatus = useMemo(() => {
-    const status = programme.map(day => ({
-      id: day.id,
-      label: day.id.replace('legs', 'leg').replace('-', ' '),
-      tracked: false
-    }));
+    const status = programme.map(day => {
+      const match = day.name.match(/^(.*?)\s*(\(.*\))$/);
+      return {
+        id: day.id,
+        label: match ? match[1] : day.name,
+        tracked: false
+      };
+    });
 
     // Get all workout events sorted by date ascending
     const allLogs = Object.entries(logs)
@@ -646,10 +730,10 @@ export default function App() {
       )
       .sort((a, b) => a.date.localeCompare(b.date));
 
-    // Group into cycles: a cycle resets after 6 unique sessions are completed
+    // Group into cycles: a cycle resets after all unique sessions in programme are completed
     let currentCycle = new Set<string>();
     for (const log of allLogs) {
-      if (currentCycle.size === 6) {
+      if (currentCycle.size === programme.length) {
         currentCycle = new Set<string>();
       }
       currentCycle.add(log.workoutId);
@@ -659,7 +743,7 @@ export default function App() {
       ...s,
       tracked: currentCycle.has(s.id)
     }));
-  }, [logs]);
+  }, [logs, programme]);
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -889,24 +973,42 @@ export default function App() {
 
             {/* Workout Content */}
             <main className="p-6 max-w-2xl mx-auto">
-              {/* Cycle Status Indicators */}
-              <div className="flex justify-between items-center px-4 mb-8 mt-4 bg-white/40 backdrop-blur-md rounded-3xl p-4 border border-white/60 shadow-sm">
-                {cycleStatus.map((s) => (
-                  <div key={s.id} className="flex flex-col items-center gap-1.5 flex-1">
-                    <motion.div 
-                      initial={false}
-                      animate={{ 
-                        backgroundColor: s.tracked ? '#0F0F0F' : '#9B9B9B',
-                        scale: s.tracked ? [1, 1.1, 1] : 1,
-                        boxShadow: s.tracked ? '0 0 10px rgba(15,15,15,0.3)' : '0 0 10px rgba(155,155,155,0.1)'
-                      }}
-                      className="w-2.5 h-2.5 rounded-full"
-                    />
-                    <span className={`text-[7px] font-black uppercase tracking-tighter ${s.tracked ? 'text-accent' : 'text-zinc-400'}`}>
-                      {s.label}
-                    </span>
-                  </div>
-                ))}
+              {/* Cycle Status Indicators (Programme Progress Bar) */}
+              <div className="flex justify-between items-center px-2 mb-8 mt-4 bg-white/40 backdrop-blur-md rounded-3xl p-4 border border-white/60 shadow-sm">
+                {cycleStatus.map((s, idx) => {
+                  const isActive = idx === activeDayIndex;
+                  const isTracked = s.tracked;
+                  return (
+                    <button 
+                      key={s.id} 
+                      onClick={() => setActiveDayIndex(idx)}
+                      className="flex-1 flex flex-col items-center gap-2 group transition-all"
+                    >
+                      <motion.div 
+                        initial={false}
+                        animate={{ 
+                          backgroundColor: isTracked || isActive ? '#0F0F0F' : '#9B9B9B',
+                          scale: isTracked || isActive ? [1, 1.1, 1] : 1,
+                          boxShadow: isTracked || isActive 
+                            ? (isActive ? '0 0 12px rgba(15,15,15,0.4)' : '0 0 10px rgba(15,15,15,0.3)') 
+                            : '0 0 10px rgba(155,155,155,0.1)'
+                        }}
+                        className="w-2.5 h-2.5 rounded-full relative"
+                      >
+                        {isActive && !isTracked && (
+                          <motion.div 
+                            className="absolute inset-0 rounded-full bg-accent/20"
+                            animate={{ scale: [1, 1.8, 1], opacity: [0.5, 0, 0.5] }}
+                            transition={{ duration: 2, repeat: Infinity }}
+                          />
+                        )}
+                      </motion.div>
+                      <span className={`text-[7px] font-black uppercase tracking-tighter transition-colors text-center leading-tight px-0.5 ${isActive ? 'text-accent' : (isTracked ? 'text-[#1a1a1a]' : 'text-zinc-400')}`}>
+                        {s.label}
+                      </span>
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="flex items-end justify-between mb-12 mt-6">
@@ -1051,11 +1153,13 @@ export default function App() {
             t={t}
             settings={settings}
             onApplyTemplate={(tpl) => {
-              if (confirm(t('confirmApplyTemplate'))) {
+              showConfirm(t('confirm'), t('confirmApplyTemplate'), () => {
                 setProgramme(tpl.programme);
+                setActiveDayIndex(0);
                 setActiveTab('workout');
-              }
+              });
             }}
+            onShowConfirm={showConfirm}
             onSaveTemplate={(tpl) => {
               setSavedTemplates(prev => {
                 const exists = prev.find(t => t.id === tpl.id);
@@ -1327,7 +1431,14 @@ export default function App() {
                                 .filter(([key]) => key !== 'exerciseOrder' && key !== 'notes')
                                 .map(([exName, exLog]: [string, any]) => (
                                   <div key={exName} className="space-y-3">
-                                    <h4 className="text-xs font-black text-[#1a1a1a] uppercase tracking-widest">{exName}</h4>
+                                    <div className="flex items-center justify-between">
+                                      <h4 className="text-xs font-black text-[#1a1a1a] uppercase tracking-widest">{exName}</h4>
+                                      {exLog.variation && (
+                                        <span className="text-[8px] font-black text-accent bg-accent/10 px-2 py-0.5 rounded-full uppercase tracking-widest">
+                                          {exLog.variation}
+                                        </span>
+                                      )}
+                                    </div>
                                     <div className="grid grid-cols-1 gap-2">
                                       {exLog.sets.map((set: SetLog, idx: number) => (
                                         <div key={idx} className="flex items-center justify-between glass-inset p-4 rounded-2xl">
@@ -1464,7 +1575,7 @@ export default function App() {
 
               <button 
                 onClick={() => {
-                  if (confirm(t('confirmExport'))) {
+                  showConfirm(t('confirm'), t('confirmExport'), () => {
                     const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(logs));
                     const downloadAnchorNode = document.createElement('a');
                     downloadAnchorNode.setAttribute("href", dataStr);
@@ -1472,7 +1583,7 @@ export default function App() {
                     document.body.appendChild(downloadAnchorNode);
                     downloadAnchorNode.click();
                     downloadAnchorNode.remove();
-                  }
+                  });
                 }}
                 className="w-full py-6 glass-button text-accent font-display font-black uppercase tracking-[0.2em] rounded-3xl transition-all active:scale-95"
               >
@@ -1669,6 +1780,15 @@ export default function App() {
           </>
         )}
       </AnimatePresence>
+
+      <ConfirmationModal 
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+        t={t}
+      />
     </div>
   );
 }
@@ -1679,6 +1799,7 @@ function TemplateEditor({
   onApplyTemplate, 
   onSaveTemplate, 
   onDeleteTemplate,
+  onShowConfirm,
   t,
   settings
 }: { 
@@ -1687,6 +1808,7 @@ function TemplateEditor({
   onApplyTemplate: (tpl: SavedTemplate) => void, 
   onSaveTemplate: (tpl: SavedTemplate) => void, 
   onDeleteTemplate: (id: string) => void,
+  onShowConfirm?: (title: string, message: string, onConfirm: () => void) => void,
   t: (key: string) => string,
   settings: any
 }) {
@@ -1841,21 +1963,40 @@ function TemplateEditor({
         </div>
 
         <div className="space-y-6">
-          {savedTemplates.sort((a, b) => (b.isDefault ? 1 : 0) - (a.isDefault ? 1 : 0)).map((tpl) => (
+          {savedTemplates.sort((a, b) => {
+            if (a.pinned && !b.pinned) return -1;
+            if (!a.pinned && b.pinned) return 1;
+            if (a.isDefault && !b.isDefault) return -1;
+            if (!a.isDefault && b.isDefault) return 1;
+            return 0;
+          }).map((tpl) => (
             <div key={tpl.id} className="relative overflow-hidden rounded-[2.5rem]">
               {/* Actions (Behind) */}
               {!tpl.isDefault && (
                 <div className="absolute inset-y-0 right-0 w-32 rounded-r-[2.5rem] flex flex-col overflow-hidden">
                   <button 
-                    onClick={() => handleExport(tpl)}
+                    onClick={() => {
+                      onSaveTemplate({ ...tpl, pinned: !tpl.pinned });
+                    }}
                     className="flex-1 w-full flex flex-col items-center justify-center text-white bg-accent border-b border-white/10"
+                  >
+                    <Pin className="w-5 h-5" />
+                    <span className="text-[8px] font-black uppercase tracking-widest">{tpl.pinned ? 'Unpin' : 'Pin'}</span>
+                  </button>
+                  <button 
+                    onClick={() => handleExport(tpl)}
+                    className="flex-1 w-full flex flex-col items-center justify-center text-white bg-zinc-800 border-b border-white/10"
                   >
                     <ExternalLink className="w-5 h-5" />
                     <span className="text-[8px] font-black uppercase tracking-widest">Export</span>
                   </button>
                   <button 
                     onClick={() => {
-                      if (confirm(t('confirmDeleteTemplate'))) onDeleteTemplate(tpl.id);
+                      if (onShowConfirm) {
+                        onShowConfirm(t('confirm'), t('confirmDeleteTemplate'), () => onDeleteTemplate(tpl.id));
+                      } else if (confirm(t('confirmDeleteTemplate'))) {
+                        onDeleteTemplate(tpl.id);
+                      }
                     }}
                     className="flex-1 w-full flex flex-col items-center justify-center text-white bg-danger"
                   >
@@ -1871,14 +2012,14 @@ function TemplateEditor({
                 dragElastic={0.1}
                 className="glass-card rounded-[2.5rem] p-8 space-y-6 relative z-10 bg-[#f5f5f5]"
               >
-                {tpl.isDefault && (
+                {(tpl.isDefault || tpl.pinned) && (
                   <div className="absolute top-0 right-0 bg-accent text-white pl-4 pr-5 py-1.5 rounded-bl-2xl text-[8px] font-black uppercase tracking-[0.2em] flex items-center justify-center">
                     {t('pinned')}
                   </div>
                 )}
                 <div>
                   <h3 className="text-xl font-display font-black text-[#1a1a1a] uppercase tracking-tighter mb-2">
-                    {tpl.isDefault ? t('defaultPplProgramme') : tpl.name}
+                    {tpl.name}
                   </h3>
                   <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-widest">
                     {tpl.programme?.length || 0} {t('days')} • {tpl.programme?.reduce((acc, d) => acc + d.exercises.length, 0) || 0} {t('exercises')}

@@ -35,4 +35,5 @@ export interface SavedTemplate {
   name: string;
   programme: WorkoutDay[];
   isDefault?: boolean;
+  pinned?: boolean;
 }
