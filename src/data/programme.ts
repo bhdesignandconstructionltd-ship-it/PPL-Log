@@ -88,10 +88,14 @@ export const UPPER_LOWER_PROGRAMME: WorkoutDay[] = [
     exercises: [
       { name: 'Banded hack squats', sets: 2, reps: '5-9, 10-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'lower' },
       { name: 'Leg Ext', sets: 2, reps: '15-20', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'lower' },
+      { name: 'Quad Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'lower' },
       { name: 'Laying hamstring', sets: 2, reps: '5-9, 10-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'lower' },
       { name: 'Abductor', sets: 2, reps: '5-9, 10-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'lower' },
+      { name: 'Hamstring Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'lower' },
       { name: 'Seated Calves', sets: 4, reps: '15-20', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'lower' },
+      { name: 'Calf Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'lower' },
       { name: 'Preacher curl', sets: 3, reps: '6-9, 10-12, 15-20', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Bicep Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'upper' },
     ]
   },
   {
@@ -101,10 +105,15 @@ export const UPPER_LOWER_PROGRAMME: WorkoutDay[] = [
       { name: 'Deadlifts', sets: 2, reps: '5-9, 10-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
       { name: 'Incline barbell', sets: 2, reps: '5-9, 10-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
       { name: 'Lat pull down', sets: 2, reps: '5-9, 10-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Back Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'upper' },
       { name: 'Close grip machine', sets: 2, reps: '5-9, 10-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Chest Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'upper' },
       { name: 'Laterals', sets: 2, reps: '15-20', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Shoulder Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'upper' },
       { name: 'Tricep rope', sets: 2, reps: '15-20', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Tricep Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'upper' },
       { name: 'Abs', sets: 4, reps: '15-20', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Abs Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'upper' },
     ]
   },
   {
@@ -113,10 +122,14 @@ export const UPPER_LOWER_PROGRAMME: WorkoutDay[] = [
     exercises: [
       { name: 'Smith squat', sets: 2, reps: '5-9, 10-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'lower' },
       { name: 'Single leg press', sets: 2, reps: '15-20', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'lower' },
+      { name: 'Quad Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'lower' },
       { name: 'Seated hamstring', sets: 2, reps: '5-9, 10-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'lower' },
-      { name: 'Abductor', sets: 2, reps: '5-9, 10-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'lower' },
+      { name: 'Adductor', sets: 2, reps: '5-9, 10-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'lower' },
+      { name: 'Hamstring Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'lower' },
       { name: 'Standing Calves', sets: 4, reps: '15-20', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'lower' },
+      { name: 'Calf Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'lower' },
       { name: 'Z bar curl', sets: 3, reps: '6-9, 10-12, 15-20', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Bicep Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'upper' },
     ]
   },
   {
@@ -128,9 +141,13 @@ export const UPPER_LOWER_PROGRAMME: WorkoutDay[] = [
       { name: 'Dips', sets: 2, reps: '5-9, 10-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
       { name: 'Neutral grip lat pull down', sets: 2, reps: '5-9, 10-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
       { name: 'Pull over', sets: 2, reps: '15-20', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Chest Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'upper' },
       { name: 'Upright row', sets: 2, reps: '15-20', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Shoulder Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'upper' },
       { name: 'Tricep press down', sets: 2, reps: '15-20', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Tricep Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'upper' },
       { name: 'Abs', sets: 4, reps: '15-20', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Abs Stretch', sets: 1, reps: '30s', options: ['BODYWEIGHT'], bodyPart: 'upper' },
     ]
   }
 ];

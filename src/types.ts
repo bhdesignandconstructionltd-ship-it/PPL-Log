@@ -15,6 +15,7 @@ export interface WorkoutDay {
 export interface SetLog {
   weight: string;
   reps: string;
+  seconds?: string;
   completed: boolean;
 }
 

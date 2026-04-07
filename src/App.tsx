@@ -1444,9 +1444,15 @@ export default function App() {
                                         <div key={idx} className="flex items-center justify-between glass-inset p-4 rounded-2xl">
                                           <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Set {idx + 1}</span>
                                           <div className="flex gap-4">
-                                            <span className="text-xs font-black font-mono text-[#1a1a1a]">{set.weight || '0'} {settings.weightUnit}</span>
-                                            <span className="text-xs font-black font-mono text-zinc-400">×</span>
-                                            <span className="text-xs font-black font-mono text-[#1a1a1a]">{set.reps || '0'} reps</span>
+                                            {set.seconds ? (
+                                              <span className="text-xs font-black font-mono text-[#1a1a1a]">{set.seconds}</span>
+                                            ) : (
+                                              <>
+                                                <span className="text-xs font-black font-mono text-[#1a1a1a]">{set.weight || '0'} {settings.weightUnit}</span>
+                                                <span className="text-xs font-black font-mono text-zinc-400">×</span>
+                                                <span className="text-xs font-black font-mono text-[#1a1a1a]">{set.reps || '0'} reps</span>
+                                              </>
+                                            )}
                                           </div>
                                         </div>
                                       ))}
@@ -2333,6 +2339,26 @@ function ExerciseCard({
   isExpanded,
   onToggleExpand
 }: ExerciseCardProps) {
+  const isStretch = exercise.name.toLowerCase().includes('stretch');
+  const [stopwatchTime, setStopwatchTime] = useState(0);
+  const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
+
+  useEffect(() => {
+    let interval: any;
+    if (isStopwatchRunning) {
+      interval = setInterval(() => {
+        setStopwatchTime(prev => prev + 1);
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [isStopwatchRunning]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  };
+
   const variation = log?.variation || prevLog?.variation || EQUIPMENT_OPTIONS[0];
   const sets = log?.sets || Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }));
 
@@ -2426,7 +2452,49 @@ function ExerciseCard({
               </div>
 
               <div className="space-y-4">
-                {sets.map((set, i) => (
+                {isStretch ? (
+                  <div className="glass-inset rounded-3xl p-6 space-y-4">
+                    <div className="flex flex-col items-center gap-2">
+                      <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Stopwatch</p>
+                      <p className="text-4xl font-mono font-black text-[#1a1a1a] tracking-tighter">
+                        {formatTime(stopwatchTime)}
+                      </p>
+                    </div>
+                    <div className="flex justify-center gap-4">
+                      <button 
+                        onClick={() => setIsStopwatchRunning(!isStopwatchRunning)}
+                        className={`p-4 rounded-2xl transition-all active:scale-95 ${
+                          isStopwatchRunning ? 'bg-zinc-100 text-zinc-400' : 'bg-accent text-white shadow-lg'
+                        }`}
+                      >
+                        {isStopwatchRunning ? <Pause className="w-6 h-6" /> : <Play className="w-6 h-6" />}
+                      </button>
+                      <button 
+                        onClick={() => {
+                          setIsStopwatchRunning(false);
+                          setStopwatchTime(0);
+                        }}
+                        className="p-4 rounded-2xl glass-button text-zinc-400 active:scale-95"
+                      >
+                        <RotateCcw className="w-6 h-6" />
+                      </button>
+                      <button 
+                        onClick={() => {
+                          onUpdateSet(0, 'completed', !sets[0].completed);
+                          if (!sets[0].completed) {
+                            onUpdateSet(0, 'seconds', formatTime(stopwatchTime));
+                          }
+                        }}
+                        className={`p-4 rounded-2xl transition-all active:scale-95 ${
+                          sets[0].completed ? 'bg-accent text-white shadow-lg' : 'glass-button text-zinc-300'
+                        }`}
+                      >
+                        <CheckCircle className="w-6 h-6" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  sets.map((set, i) => (
                   <div key={i} className="flex gap-3 items-center">
                     <div className={`w-8 h-8 shrink-0 rounded-lg flex items-center justify-center text-[10px] font-mono font-bold border transition-all duration-500 ${
                       set.completed ? 'bg-accent border-accent text-white shadow-[0_5px_15px_rgba(15,15,15,0.3)]' : 'glass-inset text-zinc-300'
@@ -2478,14 +2546,16 @@ function ExerciseCard({
                       </button>
                     </div>
                   </div>
-                ))}
-                <button 
-                  onClick={onAddSet}
-                  className="w-full py-4 glass-button rounded-2xl flex items-center justify-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] hover:text-accent transition-all active:scale-95"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Set
-                </button>
+                )))}
+                {!isStretch && (
+                  <button 
+                    onClick={onAddSet}
+                    className="w-full py-4 glass-button rounded-2xl flex items-center justify-center gap-2 text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] hover:text-accent transition-all active:scale-95"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Add Set
+                  </button>
+                )}
               </div>
             </div>
           </motion.div>
