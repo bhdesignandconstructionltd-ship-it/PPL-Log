@@ -59,7 +59,7 @@ import {
   isToday,
   parseISO
 } from 'date-fns';
-import { LoadingScreen } from './components/LoadingScreen';
+import { LoadingScreen, FolderIcon } from './components/LoadingScreen';
 import { PPL_PROGRAMME, UPPER_LOWER_PROGRAMME } from './data/programme';
 import { DailyLog, WorkoutLog, SetLog, Exercise, WorkoutDay, SavedTemplate } from './types';
 
@@ -389,6 +389,8 @@ export default function App() {
     message: '',
     onConfirm: () => {}
   });
+
+  const [showArchivedPopup, setShowArchivedPopup] = useState(false);
 
   const showConfirm = (title: string, message: string, onConfirm: () => void) => {
     setConfirmModal({
@@ -733,7 +735,7 @@ export default function App() {
     // Group into cycles: a cycle resets after all unique sessions in programme are completed
     let currentCycle = new Set<string>();
     for (const log of allLogs) {
-      if (currentCycle.size === programme.length) {
+      if (currentCycle.has(log.workoutId) || currentCycle.size === (programme.length || 1)) {
         currentCycle = new Set<string>();
       }
       currentCycle.add(log.workoutId);
@@ -744,6 +746,12 @@ export default function App() {
       tracked: currentCycle.has(s.id)
     }));
   }, [logs, programme]);
+
+  const cycleProgress = useMemo(() => {
+    if (!programme.length) return 0;
+    const trackedCount = cycleStatus.filter(s => s.tracked).length;
+    return (trackedCount / programme.length) * 100;
+  }, [cycleStatus, programme.length]);
 
   const CustomTooltip = ({ active, payload }: any) => {
     if (active && payload && payload.length) {
@@ -840,9 +848,13 @@ export default function App() {
 
   const finishWorkout = () => {
     if (programme.length === 0) return;
-    setActiveDayIndex(prev => (prev + 1) % programme.length);
-    setActiveTab('workout');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setShowArchivedPopup(true);
+    setTimeout(() => {
+      setShowArchivedPopup(false);
+      setActiveDayIndex(prev => (prev + 1) % programme.length);
+      setActiveTab('workout');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }, 3000);
   };
 
   const deleteWorkout = (date: string, workoutId: string) => {
@@ -905,6 +917,32 @@ export default function App() {
       <AnimatePresence>
         {isLoading && <LoadingScreen key="loading" />}
       </AnimatePresence>
+
+      <AnimatePresence>
+        {showArchivedPopup && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[200] flex items-center justify-center bg-white/40 backdrop-blur-md"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.8, opacity: 0, y: 20 }}
+              className="flex flex-col items-center gap-6"
+            >
+              <div className="relative w-[120px] h-[80px] flex items-center justify-center">
+                <FolderIcon delay={0} tabPosition="center" text="REP" subtext="ARCHIVE" />
+              </div>
+              <h2 className="text-2xl font-display font-black text-[#1a1a1a] tracking-tighter uppercase">
+                Workout Archived
+              </h2>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <AnimatePresence mode="wait">
         {activeTab === 'workout' && (
           <motion.div
@@ -966,7 +1004,7 @@ export default function App() {
               <motion.div 
                 className="h-full bg-accent shadow-[0_0_20px_rgba(15,15,15,0.4)]"
                 initial={{ width: 0 }}
-                animate={{ width: `${workoutProgress}%` }}
+                animate={{ width: `${cycleProgress}%` }}
                 transition={{ type: 'spring', damping: 25, stiffness: 120 }}
               />
             </div>
@@ -987,7 +1025,7 @@ export default function App() {
                       <motion.div 
                         initial={false}
                         animate={{ 
-                          backgroundColor: isTracked || isActive ? '#0F0F0F' : '#9B9B9B',
+                          backgroundColor: isTracked || isActive ? '#000000' : '#9B9B9B',
                           scale: isTracked || isActive ? [1, 1.1, 1] : 1,
                           boxShadow: isTracked || isActive 
                             ? (isActive ? '0 0 12px rgba(15,15,15,0.4)' : '0 0 10px rgba(15,15,15,0.3)') 

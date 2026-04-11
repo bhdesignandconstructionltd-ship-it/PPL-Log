@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 
-const FolderIcon = ({ delay, tabPosition, text = "REPS", subtext }: { delay: number; tabPosition: 'left' | 'center' | 'right'; text?: string; subtext?: string }) => {
+export const FolderIcon = ({ delay, tabPosition, text = "REPS", subtext }: { delay: number; tabPosition: 'left' | 'center' | 'right'; text?: string; subtext?: string }) => {
   const tabX = tabPosition === 'left' ? 10 : tabPosition === 'center' ? 40 : 70;
   
   return (
