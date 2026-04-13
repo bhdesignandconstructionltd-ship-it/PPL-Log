@@ -60,7 +60,7 @@ import {
   parseISO
 } from 'date-fns';
 import { LoadingScreen, FolderIcon } from './components/LoadingScreen';
-import { PPL_PROGRAMME, UPPER_LOWER_PROGRAMME } from './data/programme';
+import { PPL_PROGRAMME, UPPER_LOWER_PROGRAMME, FULL_BODY_PROGRAMME } from './data/programme';
 import { DailyLog, WorkoutLog, SetLog, Exercise, WorkoutDay, SavedTemplate } from './types';
 
 const STORAGE_KEY = 'ppl_pro_logs';
@@ -231,6 +231,7 @@ export default function App() {
         confirmDeleteTemplate: "Delete this template?",
         confirmApplyTemplate: "Apply this template? This will overwrite your current programme.",
         defaultUpperLowerProgramme: "DEFAULT UPPER LOWER",
+        defaultFullBodyProgramme: "DEFAULT FULL BODY",
         cancel: "CANCEL",
         confirm: "CONFIRM"
       },
@@ -302,6 +303,7 @@ export default function App() {
         confirmDeleteTemplate: "刪除此計畫？",
         confirmApplyTemplate: "套用此計畫？這將覆蓋你目前的訓練計畫。",
         defaultUpperLowerProgramme: "預設 上下肢計畫",
+        defaultFullBodyProgramme: "預設 全身計畫",
         cancel: "取消",
         confirm: "確認"
       }
@@ -335,7 +337,8 @@ export default function App() {
     const saved = localStorage.getItem(SAVED_TEMPLATES_KEY);
     const defaultTemplates: SavedTemplate[] = [
       { id: 'default-ppl', name: t('defaultPplProgramme'), programme: PPL_PROGRAMME, isDefault: true, pinned: true },
-      { id: 'default-upper-lower', name: t('defaultUpperLowerProgramme'), programme: UPPER_LOWER_PROGRAMME, isDefault: true, pinned: true }
+      { id: 'default-upper-lower', name: t('defaultUpperLowerProgramme'), programme: UPPER_LOWER_PROGRAMME, isDefault: true, pinned: true },
+      { id: 'default-full-body', name: t('defaultFullBodyProgramme'), programme: FULL_BODY_PROGRAMME, isDefault: true, pinned: true }
     ];
     if (!saved) return defaultTemplates;
     
@@ -2397,7 +2400,17 @@ function ExerciseCard({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const variation = log?.variation || prevLog?.variation || EQUIPMENT_OPTIONS[0];
+  const getAutoVariation = () => {
+    const name = exercise.name.toUpperCase();
+    if (name.includes('MACHINE')) return 'MACHINE';
+    if (name.includes('DUMBBELL') || name.includes('DB')) return 'DUMBBELL';
+    if (name.includes('BARBELL') || name.includes('BB')) return 'BARBELL';
+    if (name.includes('CABLE')) return 'CABLE';
+    if (name.includes('BODYWEIGHT') || name.includes('BODY WEIGHT')) return 'BODYWEIGHT';
+    return EQUIPMENT_OPTIONS[0];
+  };
+
+  const variation = log?.variation || prevLog?.variation || getAutoVariation();
   const sets = log?.sets || Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }));
 
   const completedCount = sets.filter(s => s.completed).length;
