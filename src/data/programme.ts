@@ -159,7 +159,7 @@ export const FULL_BODY_PROGRAMME: WorkoutDay[] = [
     exercises: [
       { name: 'Machine Squat', sets: 2, reps: '5-8', options: ['MACHINE'], bodyPart: 'lower' },
       { name: 'Seated Leg Curl', sets: 2, reps: '5-8', options: ['MACHINE'], bodyPart: 'lower' },
-      { name: 'Barbell Bench Press', sets: 2, reps: '5-8', options: ['BARBELL'], bodyPart: 'upper' },
+      { name: 'Decline Machine Bench Press', sets: 2, reps: '5-8', options: ['MACHINE'], bodyPart: 'upper' },
       { name: 'Supinated Grip Barbell Bent Over Row', sets: 2, reps: '5-8', options: ['BARBELL'], bodyPart: 'upper' },
       { name: 'Machine Lateral Raise', sets: 2, reps: '8-12', options: ['MACHINE'], bodyPart: 'upper' },
       { name: 'Preacher Curl', sets: 2, reps: '8-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE'], bodyPart: 'upper' },

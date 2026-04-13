@@ -70,6 +70,16 @@ const PROGRAMME_KEY = 'ppl_pro_custom_programme';
 const SAVED_TEMPLATES_KEY = 'ppl_pro_saved_templates';
 const EQUIPMENT_OPTIONS = ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'];
 
+const getAutoVariation = (exerciseName: string) => {
+  const name = exerciseName.toUpperCase();
+  if (name.includes('MACHINE')) return 'MACHINE';
+  if (name.includes('DUMBBELL') || name.includes('DB')) return 'DUMBBELL';
+  if (name.includes('BARBELL') || name.includes('BB')) return 'BARBELL';
+  if (name.includes('CABLE')) return 'CABLE';
+  if (name.includes('BODYWEIGHT') || name.includes('BODY WEIGHT')) return 'BODYWEIGHT';
+  return EQUIPMENT_OPTIONS[0];
+};
+
 function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updateSet, updateVariation, addSet, removeSet, onReorder, onOpenInput, isExpanded, onToggleExpand }: any) {
   const controls = useDragControls();
   return (
@@ -492,7 +502,7 @@ export default function App() {
       const dayLogs = prev[today] || {};
       const workoutLogs = dayLogs[currentDay.id] || {};
       const exerciseLog = workoutLogs[exerciseName] || {
-        variation: getPreviousWorkoutData?.[exerciseName]?.variation || EQUIPMENT_OPTIONS[0],
+        variation: getPreviousWorkoutData?.[exerciseName]?.variation || getAutoVariation(exerciseName),
         sets: Array(exercise.sets).fill(null).map(() => ({
           weight: '',
           reps: '',
@@ -788,7 +798,7 @@ export default function App() {
       const dayLogs = prev[today] || {};
       const workoutLogs = dayLogs[currentDay.id] || {};
       const exerciseLog = workoutLogs[exerciseName] || {
-        variation: getPreviousWorkoutData?.[exerciseName]?.variation || EQUIPMENT_OPTIONS[0],
+        variation: getPreviousWorkoutData?.[exerciseName]?.variation || getAutoVariation(exerciseName),
         sets: Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }))
       };
 
@@ -814,7 +824,7 @@ export default function App() {
       const dayLogs = prev[today] || {};
       const workoutLogs = dayLogs[currentDay.id] || {};
       const exerciseLog = workoutLogs[exerciseName] || {
-        variation: getPreviousWorkoutData?.[exerciseName]?.variation || EQUIPMENT_OPTIONS[0],
+        variation: getPreviousWorkoutData?.[exerciseName]?.variation || getAutoVariation(exerciseName),
         sets: Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }))
       };
 
@@ -2400,17 +2410,7 @@ function ExerciseCard({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getAutoVariation = () => {
-    const name = exercise.name.toUpperCase();
-    if (name.includes('MACHINE')) return 'MACHINE';
-    if (name.includes('DUMBBELL') || name.includes('DB')) return 'DUMBBELL';
-    if (name.includes('BARBELL') || name.includes('BB')) return 'BARBELL';
-    if (name.includes('CABLE')) return 'CABLE';
-    if (name.includes('BODYWEIGHT') || name.includes('BODY WEIGHT')) return 'BODYWEIGHT';
-    return EQUIPMENT_OPTIONS[0];
-  };
-
-  const variation = log?.variation || prevLog?.variation || getAutoVariation();
+  const variation = log?.variation || prevLog?.variation || getAutoVariation(exercise.name);
   const sets = log?.sets || Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }));
 
   const completedCount = sets.filter(s => s.completed).length;
