@@ -635,17 +635,16 @@ export default function App() {
   const workoutProgress = useMemo(() => {
     if (!currentDay) return 0;
     const dayLog = logs[today]?.[currentDay.id];
-    if (!dayLog) return 0;
     
     let totalSets = 0;
     let completedSets = 0;
     
     currentDay.exercises.forEach(ex => {
-      const exLog = dayLog[ex.name];
-      const sets = exLog?.sets || Array(ex.sets).fill(null);
-      totalSets += sets.length;
+      const exLog = dayLog?.[ex.name];
+      const setsCount = exLog?.sets?.length ?? ex.sets;
+      totalSets += setsCount;
       if (exLog) {
-        completedSets += exLog.sets.filter(s => s.completed).length;
+        completedSets += exLog.sets.filter((s: any) => s.completed).length;
       }
     });
     
@@ -983,9 +982,9 @@ export default function App() {
             <header className="px-6 py-8 flex justify-between items-center sticky top-0 bg-white/40 backdrop-blur-2xl z-20 border-b border-white/50 transition-colors">
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-display font-extrabold tracking-tighter uppercase text-[#1a1a1a]">{t('repArchive')}</h1>
+                  <h1 className="text-lg font-display font-extrabold tracking-tighter uppercase text-[#1a1a1a]">{t('repArchive')}</h1>
                 </div>
-                <p className="text-zinc-400 text-[10px] font-bold uppercase tracking-[0.3em] mt-1.5">
+                <p className="text-zinc-400 text-[9px] font-bold uppercase tracking-[0.3em] mt-0.5">
                   {new Date().toLocaleDateString(settings.language === 'en' ? 'en-US' : 'zh-TW', { weekday: 'long', month: 'short', day: 'numeric' })}
                 </p>
               </div>
@@ -1013,11 +1012,32 @@ export default function App() {
             </header>
 
             {/* Progress Bar */}
-            <div className="h-[3px] w-full bg-white/50 sticky top-[93px] z-20">
+            <div className="h-[2px] w-full bg-zinc-200 sticky top-[93px] z-20 overflow-visible">
+              {/* Trapezium Tab */}
               <motion.div 
-                className="h-full bg-accent shadow-[0_0_20px_rgba(15,15,15,0.4)]"
+                className="absolute bottom-[-1px] overflow-visible"
+                initial={{ left: 0 }}
+                animate={{ left: `${workoutProgress}%` }}
+                transition={{ type: 'spring', damping: 25, stiffness: 120 }}
+                style={{ transform: `translateX(-${workoutProgress}%)` }}
+              >
+                <svg width="64" height="24" viewBox="0 0 64 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2L52 2L62 22H2L12 2Z" fill="white" stroke="black" strokeWidth="0.9" strokeLinejoin="round"/>
+                  <text 
+                    x="32" 
+                    y="13" 
+                    textAnchor="middle" 
+                    dominantBaseline="middle" 
+                    className="text-[10px] font-black fill-black font-mono"
+                  >
+                    {Math.round(workoutProgress)}%
+                  </text>
+                </svg>
+              </motion.div>
+              <motion.div 
+                className="h-full bg-black relative"
                 initial={{ width: 0 }}
-                animate={{ width: `${cycleProgress}%` }}
+                animate={{ width: `${workoutProgress}%` }}
                 transition={{ type: 'spring', damping: 25, stiffness: 120 }}
               />
             </div>
