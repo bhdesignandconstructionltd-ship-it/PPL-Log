@@ -1064,7 +1064,7 @@ export default function App() {
                             ? (isActive ? '0 0 12px rgba(15,15,15,0.4)' : '0 0 10px rgba(15,15,15,0.3)') 
                             : '0 0 10px rgba(155,155,155,0.1)'
                         }}
-                        className="w-2.5 h-2.5 rounded-full relative"
+                        className={`w-2.5 h-2.5 rounded-full relative ${isActive ? 'animate-pulse' : ''}`}
                       >
                         {isActive && !isTracked && (
                           <motion.div 
