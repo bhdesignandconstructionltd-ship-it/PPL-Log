@@ -1018,16 +1018,22 @@ export default function App() {
                   initial={{ left: 0 }}
                   animate={{ left: `${workoutProgress}%` }}
                   transition={{ type: 'spring', damping: 25, stiffness: 120 }}
-                  style={{ transform: `translateX(-${workoutProgress}%)` }}
+                  style={{ transform: 'translateX(-62px)' }}
                 >
                   <svg width="64" height="24" viewBox="0 0 64 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2L52 2L62 22H2L12 2Z" fill="white" stroke="black" strokeWidth="0.9" strokeLinejoin="round"/>
+                    <path 
+                      d="M16 2 H48 C51 2 52 3 53 5 L61 21 C62 22 61 22 60 22 H4 C3 22 2 22 3 21 L11 5 C12 3 13 2 16 2 Z" 
+                      fill="white" 
+                      stroke="#a1a1aa" 
+                      strokeWidth="0.9" 
+                      strokeLinejoin="round"
+                    />
                     <text 
                       x="32" 
                       y="13" 
                       textAnchor="middle" 
                       dominantBaseline="middle" 
-                      className="text-[10px] font-black fill-black font-mono"
+                      className="text-[10px] font-black fill-[#a1a1aa] font-mono"
                     >
                       {Math.round(workoutProgress)}%
                     </text>
