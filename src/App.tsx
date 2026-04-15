@@ -1009,38 +1009,38 @@ export default function App() {
                   <Settings className="w-5 h-5 text-zinc-400" />
                 </button>
               </div>
-            </header>
 
-            {/* Progress Bar */}
-            <div className="h-[2px] w-full bg-zinc-200 sticky top-[93px] z-20 overflow-visible">
-              {/* Trapezium Tab */}
-              <motion.div 
-                className="absolute bottom-[-1px] overflow-visible"
-                initial={{ left: 0 }}
-                animate={{ left: `${workoutProgress}%` }}
-                transition={{ type: 'spring', damping: 25, stiffness: 120 }}
-                style={{ transform: `translateX(-${workoutProgress}%)` }}
-              >
-                <svg width="64" height="24" viewBox="0 0 64 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M12 2L52 2L62 22H2L12 2Z" fill="white" stroke="black" strokeWidth="0.9" strokeLinejoin="round"/>
-                  <text 
-                    x="32" 
-                    y="13" 
-                    textAnchor="middle" 
-                    dominantBaseline="middle" 
-                    className="text-[10px] font-black fill-black font-mono"
-                  >
-                    {Math.round(workoutProgress)}%
-                  </text>
-                </svg>
-              </motion.div>
-              <motion.div 
-                className="h-full bg-black relative"
-                initial={{ width: 0 }}
-                animate={{ width: `${workoutProgress}%` }}
-                transition={{ type: 'spring', damping: 25, stiffness: 120 }}
-              />
-            </div>
+              {/* Progress Bar moved inside sticky header */}
+              <div className="absolute bottom-0 left-0 h-[2px] w-full bg-zinc-200 overflow-visible">
+                {/* Trapezium Tab */}
+                <motion.div 
+                  className="absolute bottom-[-1px] overflow-visible"
+                  initial={{ left: 0 }}
+                  animate={{ left: `${workoutProgress}%` }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 120 }}
+                  style={{ transform: `translateX(-${workoutProgress}%)` }}
+                >
+                  <svg width="64" height="24" viewBox="0 0 64 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2L52 2L62 22H2L12 2Z" fill="white" stroke="black" strokeWidth="0.9" strokeLinejoin="round"/>
+                    <text 
+                      x="32" 
+                      y="13" 
+                      textAnchor="middle" 
+                      dominantBaseline="middle" 
+                      className="text-[10px] font-black fill-black font-mono"
+                    >
+                      {Math.round(workoutProgress)}%
+                    </text>
+                  </svg>
+                </motion.div>
+                <motion.div 
+                  className="h-full bg-black relative"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${workoutProgress}%` }}
+                  transition={{ type: 'spring', damping: 25, stiffness: 120 }}
+                />
+              </div>
+            </header>
 
             {/* Workout Content */}
             <main className="p-6 max-w-2xl mx-auto">

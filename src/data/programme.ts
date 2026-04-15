@@ -157,26 +157,26 @@ export const FULL_BODY_PROGRAMME: WorkoutDay[] = [
     id: 'full-body-a',
     name: 'Workout A',
     exercises: [
-      { name: 'Machine Squat', sets: 2, reps: '5-8', options: ['MACHINE'], bodyPart: 'lower' },
-      { name: 'Seated Leg Curl', sets: 2, reps: '5-8', options: ['MACHINE'], bodyPart: 'lower' },
-      { name: 'Decline Machine Bench Press', sets: 2, reps: '5-8', options: ['MACHINE'], bodyPart: 'upper' },
-      { name: 'Supinated Grip Barbell Bent Over Row', sets: 2, reps: '5-8', options: ['BARBELL'], bodyPart: 'upper' },
-      { name: 'Machine Lateral Raise', sets: 2, reps: '8-12', options: ['MACHINE'], bodyPart: 'upper' },
-      { name: 'Preacher Curl', sets: 2, reps: '8-12', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE'], bodyPart: 'upper' },
-      { name: 'Calf Press', sets: 2, reps: '8-12', options: ['MACHINE'], bodyPart: 'lower' },
+      { name: 'Weighted Dips', sets: 2, reps: '8-10, 12-15', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Machine Squat', sets: 2, reps: '6-8, 8-12', options: ['MACHINE'], bodyPart: 'lower' },
+      { name: 'Seated Leg Curl', sets: 2, reps: '6-8, 8-12', options: ['MACHINE'], bodyPart: 'lower' },
+      { name: 'Supinated Grip Barbell Bent Over Row', sets: 2, reps: '6-8, 8-12', options: ['BARBELL'], bodyPart: 'upper' },
+      { name: 'Machine Lateral Raise', sets: 2, reps: '8-10, 12-14', options: ['MACHINE'], bodyPart: 'upper' },
+      { name: 'Preacher Curl', sets: 2, reps: '8-10, 12-14', options: ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE'], bodyPart: 'upper' },
+      { name: 'Calf Press', sets: 2, reps: '8-10, 12-14', options: ['MACHINE'], bodyPart: 'lower' },
     ]
   },
   {
     id: 'full-body-b',
     name: 'Workout B',
     exercises: [
-      { name: 'Hip Thrust', sets: 2, reps: '5-8', options: ['BARBELL', 'MACHINE'], bodyPart: 'lower' },
-      { name: 'Leg Extension', sets: 2, reps: '6-10', options: ['MACHINE'], bodyPart: 'lower' },
-      { name: 'Machine Chest Press', sets: 1, reps: '5-8', options: ['MACHINE'], bodyPart: 'upper' },
-      { name: 'Weighted Pull-Up', sets: 2, reps: '5-8', options: ['BODYWEIGHT'], bodyPart: 'upper' },
-      { name: 'Machine Shoulder Press', sets: 1, reps: '5-8', options: ['MACHINE'], bodyPart: 'upper' },
-      { name: 'Overhead Tricep Extension', sets: 2, reps: '8-12', options: ['DUMBBELL', 'CABLE', 'MACHINE'], bodyPart: 'upper' },
-      { name: 'Facepull', sets: 2, reps: '8-12', options: ['CABLE'], bodyPart: 'upper' },
+      { name: 'Weighted Pull-Up', sets: 2, reps: '6-8, 12-15', options: ['BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Hip Thrust', sets: 2, reps: '6-8, 8-12', options: ['BARBELL', 'MACHINE'], bodyPart: 'lower' },
+      { name: 'Leg Extension', sets: 2, reps: '6-8, 8-12', options: ['MACHINE'], bodyPart: 'lower' },
+      { name: 'Machine Chest Press', sets: 1, reps: '6-8, 8-12', options: ['MACHINE'], bodyPart: 'upper' },
+      { name: 'Machine Shoulder Press', sets: 1, reps: '6-8, 8-12', options: ['MACHINE'], bodyPart: 'upper' },
+      { name: 'Overhead Tricep Extension', sets: 2, reps: '8-10, 12-14', options: ['DUMBBELL', 'CABLE', 'MACHINE'], bodyPart: 'upper' },
+      { name: 'Facepull', sets: 2, reps: '8-10, 12-14', options: ['CABLE'], bodyPart: 'upper' },
     ]
   }
 ];
