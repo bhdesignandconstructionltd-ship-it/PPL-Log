@@ -170,7 +170,7 @@ export const FULL_BODY_PROGRAMME: WorkoutDay[] = [
     id: 'full-body-b',
     name: 'Workout B',
     exercises: [
-      { name: 'Weighted Pull-Up', sets: 2, reps: '6-8, 12-15', options: ['BODYWEIGHT'], bodyPart: 'upper' },
+      { name: 'Weighted Pull-Up', sets: 2, reps: '6-8, 10-12', options: ['BODYWEIGHT'], bodyPart: 'upper' },
       { name: 'Hip Thrust', sets: 2, reps: '6-8, 8-12', options: ['BARBELL', 'MACHINE'], bodyPart: 'lower' },
       { name: 'Leg Extension', sets: 2, reps: '6-8, 8-12', options: ['MACHINE'], bodyPart: 'lower' },
       { name: 'Machine Chest Press', sets: 1, reps: '6-8, 8-12', options: ['MACHINE'], bodyPart: 'upper' },

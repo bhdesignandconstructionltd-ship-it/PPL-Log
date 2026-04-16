@@ -80,7 +80,7 @@ const getAutoVariation = (exerciseName: string) => {
   return EQUIPMENT_OPTIONS[0];
 };
 
-function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updateSet, updateVariation, addSet, removeSet, onReorder, onOpenInput, isExpanded, onToggleExpand }: any) {
+function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updateSet, updateVariation, updateExerciseNotes, addSet, removeSet, onReorder, onOpenInput, isExpanded, onToggleExpand, settings, t }: any) {
   const controls = useDragControls();
   return (
     <Reorder.Item 
@@ -95,12 +95,15 @@ function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updat
         prevLog={getPreviousWorkoutData?.[ex.name]}
         onUpdateSet={(setIdx: number, field: any, val: any) => updateSet(ex, setIdx, field, val)}
         onUpdateVariation={(val: string) => updateVariation(ex.name, val)}
+        onUpdateNotes={(val: string) => updateExerciseNotes(ex.name, val)}
         onAddSet={() => addSet(ex)}
         onRemoveSet={(idx?: number) => removeSet(ex, idx)}
         dragControls={controls}
         onOpenInput={onOpenInput}
         isExpanded={isExpanded}
         onToggleExpand={onToggleExpand}
+        settings={settings}
+        t={t}
       />
     </Reorder.Item>
   );
@@ -167,6 +170,7 @@ export default function App() {
       restIntervalUpper: 60,
       restIntervalLower: 90,
       weightUnit: 'kg',
+      bodyWeight: 70,
       language: 'en'
     };
   });
@@ -184,6 +188,7 @@ export default function App() {
         lowerBodyRest: "Lower Body Rest",
         weightUnit: "Weight Unit",
         language: "Language",
+        bodyWeight: "Bodyweight",
         exportBackup: "Export Data Backup",
         editProgramme: "Edit Programme",
         programmeName: "Programme Name",
@@ -242,6 +247,8 @@ export default function App() {
         confirmApplyTemplate: "Apply this template? This will overwrite your current programme.",
         defaultUpperLowerProgramme: "DEFAULT UPPER LOWER",
         defaultFullBodyProgramme: "DEFAULT FULL BODY",
+        exerciseNotes: "Exercise Notes",
+        exerciseNotesPlaceholder: "Add notes for this exercise...",
         cancel: "CANCEL",
         confirm: "CONFIRM"
       },
@@ -256,6 +263,7 @@ export default function App() {
         lowerBodyRest: "下半身休息",
         weightUnit: "重量單位",
         language: "語言",
+        bodyWeight: "體重",
         exportBackup: "匯出數據備份",
         editProgramme: "編輯計畫",
         programmeName: "計畫名稱",
@@ -314,6 +322,8 @@ export default function App() {
         confirmApplyTemplate: "套用此計畫？這將覆蓋你目前的訓練計畫。",
         defaultUpperLowerProgramme: "預設 上下肢計畫",
         defaultFullBodyProgramme: "預設 全身計畫",
+        exerciseNotes: "動作筆記",
+        exerciseNotesPlaceholder: "為此動作添加筆記...",
         cancel: "取消",
         confirm: "確認"
       }
@@ -384,9 +394,10 @@ export default function App() {
 
   // Input State
   const [activeInput, setActiveInput] = useState<{
-    exerciseName: string;
-    setIndex: number;
-    field: 'weight' | 'reps';
+    type: 'exercise' | 'settings';
+    exerciseName?: string;
+    setIndex?: number;
+    field: 'weight' | 'reps' | 'bodyWeight';
     value: string;
     placeholder: string;
   } | null>(null);
@@ -513,10 +524,25 @@ export default function App() {
       const newSets = [...exerciseLog.sets];
       const currentSet = { ...newSets[setIndex] };
       
+      let finalValue = value;
+      
+      // Special logic for bodyweight exercises
+      if (field === 'weight' && typeof value === 'string' && value !== '') {
+        const variation = exerciseLog.variation;
+        
+        if (variation === 'BODYWEIGHT') {
+          const addedWeight = parseFloat(value);
+          if (!isNaN(addedWeight)) {
+            finalValue = (addedWeight + (settings.bodyWeight || 0)).toString();
+          }
+        }
+      }
+
       // If marking as completed, check if we need to use placeholders
       if (field === 'completed' && value === true) {
         if (!currentSet.weight) {
-          currentSet.weight = newSets[setIndex - 1]?.weight || getPreviousWorkoutData?.[exerciseName]?.sets[setIndex]?.weight || "0";
+          const placeholder = newSets[setIndex - 1]?.weight || getPreviousWorkoutData?.[exerciseName]?.sets[setIndex]?.weight || "0";
+          currentSet.weight = placeholder;
         }
         if (!currentSet.reps) {
           currentSet.reps = newSets[setIndex - 1]?.reps || getPreviousWorkoutData?.[exerciseName]?.sets[setIndex]?.reps || "0";
@@ -525,7 +551,7 @@ export default function App() {
 
       newSets[setIndex] = {
         ...currentSet,
-        [field]: value
+        [field]: finalValue
       };
 
       // Trigger timer if set was marked as completed
@@ -562,6 +588,16 @@ export default function App() {
         }))
       };
 
+      let newSets = [...exerciseLog.sets];
+      
+      // Automatically apply bodyweight if variation is BODYWEIGHT
+      if (variation === 'BODYWEIGHT') {
+        newSets = newSets.map(s => ({
+          ...s,
+          weight: settings.bodyWeight?.toString() || s.weight
+        }));
+      }
+
       return {
         ...prev,
         [today]: {
@@ -570,7 +606,8 @@ export default function App() {
             ...workoutLogs,
             [exerciseName]: {
               ...exerciseLog,
-              variation
+              variation,
+              sets: newSets
             }
           }
         }
@@ -610,6 +647,36 @@ export default function App() {
           [currentDay.id]: {
             ...workoutLogs,
             notes
+          }
+        }
+      };
+    });
+  };
+
+  const updateExerciseNotes = (exerciseName: string, notes: string) => {
+    if (!currentDay) return;
+    setLogs(prev => {
+      const dayLogs = prev[today] || {};
+      const workoutLogs = dayLogs[currentDay.id] || {};
+      const exerciseLog = workoutLogs[exerciseName] || {
+        variation: getPreviousWorkoutData?.[exerciseName]?.variation || getAutoVariation(exerciseName),
+        sets: Array(programme.find(d => d.id === currentDay.id)?.exercises.find(e => e.name === exerciseName)?.sets || 0).fill(null).map(() => ({
+          weight: '',
+          reps: '',
+          completed: false
+        }))
+      };
+      
+      return {
+        ...prev,
+        [today]: {
+          ...dayLogs,
+          [currentDay.id]: {
+            ...workoutLogs,
+            [exerciseName]: {
+              ...exerciseLog,
+              notes
+            }
           }
         }
       };
@@ -1159,10 +1226,12 @@ export default function App() {
                     getPreviousWorkoutData={getPreviousWorkoutData}
                     updateSet={updateSet}
                     updateVariation={updateVariation}
+                    updateExerciseNotes={updateExerciseNotes}
                     addSet={addSet}
                     removeSet={removeSet}
                     onOpenInput={(idx: number, field: 'weight' | 'reps', val: string, placeholder: string) => {
                       setActiveInput({
+                        type: 'exercise',
                         exerciseName: ex.name,
                         setIndex: idx,
                         field,
@@ -1172,6 +1241,8 @@ export default function App() {
                     }}
                     isExpanded={expandedExercise === ex.name}
                     onToggleExpand={() => setExpandedExercise(expandedExercise === ex.name ? null : ex.name)}
+                    settings={settings}
+                    t={t}
                   />
                 ))}
               </Reorder.Group>
@@ -1604,6 +1675,21 @@ export default function App() {
             </div>
 
             <div className="space-y-10">
+              <div className="bg-accent rounded-3xl p-6 flex justify-between items-center shadow-[0_15px_40px_rgba(15,15,15,0.3)]">
+                <span className="text-xs font-bold uppercase tracking-[0.2em] text-white/60">{t('bodyWeight')}</span>
+                <button 
+                  onClick={() => setActiveInput({
+                    type: 'settings',
+                    field: 'bodyWeight',
+                    value: settings.bodyWeight?.toString() || '',
+                    placeholder: '70'
+                  })}
+                  className="bg-white/10 backdrop-blur-md border border-white/20 text-white font-display font-black font-mono px-4 py-2 rounded-xl outline-none active:scale-95 transition-all"
+                >
+                  {settings.bodyWeight} {settings.weightUnit}
+                </button>
+              </div>
+
               <section>
                 <h3 className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.4em] mb-6">{t('systemConfig')}</h3>
                 <div className="space-y-4">
@@ -1852,10 +1938,15 @@ export default function App() {
               placeholder={activeInput.placeholder}
               onUpdate={(val: string) => setActiveInput({ ...activeInput, value: val })}
               onDone={() => {
-                const exercise = currentDay?.exercises.find(e => e.name === activeInput.exerciseName);
-                if (exercise) {
+                if (activeInput.type === 'exercise') {
+                  const exercise = currentDay?.exercises.find(e => e.name === activeInput.exerciseName);
+                  if (exercise) {
+                    const finalValue = activeInput.value || activeInput.placeholder;
+                    updateSet(exercise, activeInput.setIndex!, activeInput.field as 'weight' | 'reps', finalValue);
+                  }
+                } else if (activeInput.type === 'settings') {
                   const finalValue = activeInput.value || activeInput.placeholder;
-                  updateSet(exercise, activeInput.setIndex, activeInput.field, finalValue);
+                  setSettings({ ...settings, bodyWeight: parseFloat(finalValue) || 0 });
                 }
                 setActiveInput(null);
               }}
@@ -2388,19 +2479,24 @@ interface ExerciseCardProps {
   log?: {
     variation: string;
     sets: SetLog[];
+    notes?: string;
   };
   prevLog?: {
     variation: string;
     sets: SetLog[];
+    notes?: string;
   };
   onUpdateSet: (idx: number, field: keyof SetLog, val: any) => void;
   onUpdateVariation: (val: string) => void;
+  onUpdateNotes: (val: string) => void;
   onAddSet: () => void;
   onRemoveSet: (idx?: number) => void;
   dragControls: any;
   onOpenInput: (idx: number, field: 'weight' | 'reps', val: string, placeholder: string) => void;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  settings: any;
+  t: any;
 }
 
 function ExerciseCard({ 
@@ -2409,16 +2505,20 @@ function ExerciseCard({
   prevLog,
   onUpdateSet, 
   onUpdateVariation,
+  onUpdateNotes,
   onAddSet,
   onRemoveSet,
   dragControls,
   onOpenInput,
   isExpanded,
-  onToggleExpand
+  onToggleExpand,
+  settings,
+  t
 }: ExerciseCardProps) {
   const isStretch = exercise.name.toLowerCase().includes('stretch');
   const [stopwatchTime, setStopwatchTime] = useState(0);
   const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
 
   useEffect(() => {
     let interval: any;
@@ -2580,15 +2680,36 @@ function ExerciseCard({
                     </div>
                     <div className="flex-1 grid grid-cols-2 gap-3 min-w-0">
                       <div className="relative">
-                        <button 
-                          onClick={() => {
-                            const placeholder = sets[i-1]?.weight || prevLog?.sets[i]?.weight || "0.0";
-                            onOpenInput(i, 'weight', set.weight, placeholder);
-                          }}
-                          className="w-full glass-inset rounded-2xl py-3 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-accent/20 outline-none transition-all text-[#1a1a1a] min-h-[44px] flex items-center justify-center"
-                        >
-                          {set.weight || <span className="text-zinc-400">{sets[i-1]?.weight || prevLog?.sets[i]?.weight || "0.0"}</span>}
-                        </button>
+                        {variation === 'BODYWEIGHT' ? (
+                          <button 
+                            onClick={() => {
+                              const currentTotal = parseFloat(set.weight) || settings.bodyWeight || 0;
+                              const addedWeight = Math.max(0, currentTotal - (settings.bodyWeight || 0));
+                              const placeholder = "0.0";
+                              onOpenInput(i, 'weight', addedWeight > 0 ? addedWeight.toString() : '', placeholder);
+                            }}
+                            className="w-full glass-inset rounded-2xl py-2 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-accent/20 outline-none transition-all text-[#1a1a1a] min-h-[52px] flex flex-col items-center justify-center"
+                          >
+                            <span className="text-[9px] text-zinc-400 uppercase tracking-widest mb-0.5">{settings.bodyWeight || "0"} +</span>
+                            <span className="text-sm">
+                              {(() => {
+                                const currentTotal = parseFloat(set.weight) || settings.bodyWeight || 0;
+                                const addedWeight = currentTotal - (settings.bodyWeight || 0);
+                                return addedWeight > 0 ? addedWeight : <span className="text-zinc-400">0.0</span>;
+                              })()}
+                            </span>
+                          </button>
+                        ) : (
+                          <button 
+                            onClick={() => {
+                              const placeholder = sets[i-1]?.weight || prevLog?.sets[i]?.weight || "0.0";
+                              onOpenInput(i, 'weight', set.weight, placeholder);
+                            }}
+                            className="w-full glass-inset rounded-2xl py-3 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-accent/20 outline-none transition-all text-[#1a1a1a] min-h-[44px] flex items-center justify-center"
+                          >
+                            {set.weight || <span className="text-zinc-400">{sets[i-1]?.weight || prevLog?.sets[i]?.weight || "0.0"}</span>}
+                          </button>
+                        )}
                         {i === 0 && <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[8px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Weight</span>}
                       </div>
                       <div className="relative">
@@ -2633,6 +2754,39 @@ function ExerciseCard({
                     Add Set
                   </button>
                 )}
+
+                <div className="pt-4 border-t border-black/5">
+                  <button 
+                    onClick={() => setShowNotes(!showNotes)}
+                    className="flex items-center justify-between w-full"
+                  >
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">{t('exerciseNotes')}</p>
+                    <div className="flex items-center gap-2">
+                      {log?.notes && !showNotes && <div className="w-1.5 h-1.5 rounded-full bg-accent animate-pulse" />}
+                      <ChevronDown className={`w-3.5 h-3.5 text-zinc-400 transition-transform duration-500 ${showNotes ? 'rotate-180' : ''}`} />
+                    </div>
+                  </button>
+                  <AnimatePresence>
+                    {showNotes && (
+                      <motion.div 
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.5, ease: [0.23, 1, 0.32, 1] }}
+                        className="overflow-hidden"
+                      >
+                        <div className="glass-inset rounded-2xl p-4 mt-4">
+                          <textarea 
+                            value={log?.notes || ''}
+                            onChange={(e) => onUpdateNotes(e.target.value)}
+                            placeholder={t('exerciseNotesPlaceholder')}
+                            className="w-full h-20 bg-transparent border-none outline-none text-xs font-display font-medium text-[#1a1a1a] placeholder:text-zinc-300 resize-none"
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
               </div>
             </div>
           </motion.div>
