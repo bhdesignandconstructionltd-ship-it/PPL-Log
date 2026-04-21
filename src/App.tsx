@@ -253,7 +253,10 @@ export default function App() {
         exerciseNotes: "Exercise Notes",
         exerciseNotesPlaceholder: "Add notes for this exercise...",
         cancel: "CANCEL",
-        confirm: "CONFIRM"
+        confirm: "CONFIRM",
+        createProgramme: "Create Programme",
+        exportCurrentProgramme: "Export Current Programme",
+        programme: "Programme"
       },
       zh: {
         repArchive: "訓練紀錄",
@@ -328,7 +331,10 @@ export default function App() {
         exerciseNotes: "動作筆記",
         exerciseNotesPlaceholder: "為此動作添加筆記...",
         cancel: "取消",
-        confirm: "確認"
+        confirm: "確認",
+        createProgramme: "建立訓練計畫",
+        exportCurrentProgramme: "匯出當前計畫",
+        programme: "訓練計畫"
       }
     };
     return translations[settings.language]?.[key] || translations['en'][key] || key;
@@ -826,6 +832,29 @@ export default function App() {
     }
   };
 
+  const addNewExerciseToActiveDay = () => {
+    if (!currentDay) return;
+    const newExercise: Exercise = {
+      name: `${t('newExercise')} ${currentDay.exercises.length + 1}`,
+      sets: 3,
+      reps: '10-12',
+      options: [],
+      bodyPart: 'upper'
+    };
+    
+    const newProgramme = programme.map((day, idx) => {
+      if (idx === activeDayIndex) {
+        return {
+          ...day,
+          exercises: [...day.exercises, newExercise]
+        };
+      }
+      return day;
+    });
+    
+    setProgramme(newProgramme);
+  };
+
   const chartData = useMemo(() => {
     const data = Object.entries(logs)
       .map(([date, workoutLogs]) => {
@@ -1301,6 +1330,14 @@ export default function App() {
                   />
                 ))}
               </Reorder.Group>
+
+              <button 
+                onClick={addNewExerciseToActiveDay}
+                className="mt-6 w-full py-8 border-2 border-dashed border-accent/20 rounded-[2.5rem] text-accent/40 font-display font-black text-xs uppercase tracking-[0.3em] hover:bg-accent/5 hover:text-accent hover:border-accent/40 transition-all flex flex-col items-center gap-3"
+              >
+                <Plus className="w-6 h-6" />
+                {t('addExercise')}
+              </button>
 
               <div className="mt-12 glass-card rounded-[2.5rem] p-8 space-y-4">
                 <div className="flex items-center gap-3 mb-2">
@@ -2044,7 +2081,19 @@ function TemplateEditor({
   const [view, setView] = useState<'summary' | 'edit'>('summary');
   const [editingTemplate, setEditingTemplate] = useState<SavedTemplate | null>(null);
   const [expandedDays, setExpandedDays] = useState<Set<string>>(new Set());
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const addMenuRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (addMenuRef.current && !addMenuRef.current.contains(event.target as Node)) {
+        setShowAddMenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const toggleDay = (id: string) => {
     const newSet = new Set(expandedDays);
@@ -2156,6 +2205,18 @@ function TemplateEditor({
     setEditingTemplate({ ...editingTemplate, programme: editingTemplate.programme.filter((_, i) => i !== dayIdx) });
   };
 
+  const handleExportCurrentProgramme = () => {
+    const newTpl: SavedTemplate = {
+      id: `exported-${Date.now()}`,
+      name: `${t('programme')} (Exported ${format(new Date(), 'MMM d, HH:mm')})`,
+      programme: JSON.parse(JSON.stringify(currentProgramme)),
+      pinned: false,
+      isDefault: false
+    };
+    onSaveTemplate(newTpl);
+    setShowAddMenu(false);
+  };
+
   if (view === 'summary') {
     return (
       <motion.div
@@ -2168,7 +2229,7 @@ function TemplateEditor({
           <div className="flex items-center">
             <h1 className="text-xl font-display font-black tracking-tighter uppercase text-[#1a1a1a]">{t('programmes')}</h1>
           </div>
-          <div className="flex gap-2 shrink-0">
+          <div className="flex gap-2 shrink-0 relative" ref={addMenuRef}>
             <input 
               type="file" 
               ref={fileInputRef} 
@@ -2183,11 +2244,41 @@ function TemplateEditor({
               <Download className="w-5 h-5" />
             </button>
             <button 
-              onClick={startNewTemplate}
+              onClick={() => setShowAddMenu(!showAddMenu)}
               className="bg-accent text-white p-3 rounded-2xl shadow-lg active:scale-95 transition-all flex items-center justify-center"
             >
               <Plus className="w-5 h-5" />
             </button>
+
+            <AnimatePresence>
+              {showAddMenu && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  className="absolute top-full right-0 mt-2 w-56 bg-white/70 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/50 py-2 z-[100] overflow-hidden"
+                >
+                  <button
+                    onClick={() => {
+                      startNewTemplate();
+                      setShowAddMenu(false);
+                    }}
+                    className="w-full px-6 py-4 flex items-center gap-3 text-sm font-display font-medium uppercase tracking-wider text-[#1a1a1a] hover:bg-black/5 active:bg-black/10 transition-colors text-left"
+                  >
+                    <Plus className="w-4 h-4 text-accent" />
+                    <span>{t('createProgramme') || "Create Programme"}</span>
+                  </button>
+                  <div className="h-px bg-black/5 mx-4" />
+                  <button
+                    onClick={handleExportCurrentProgramme}
+                    className="w-full px-6 py-4 flex items-center gap-3 text-sm font-display font-medium uppercase tracking-wider text-[#1a1a1a] hover:bg-black/5 active:bg-black/10 transition-colors text-left"
+                  >
+                    <Upload className="w-4 h-4 text-accent" />
+                    <span>{t('exportCurrentProgramme') || "Export Current Programme"}</span>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 
@@ -2291,7 +2382,6 @@ function TemplateEditor({
           >
             <ArrowLeft className="w-5 h-5 text-zinc-400" />
           </button>
-          <h1 className="text-lg font-display font-black tracking-tighter uppercase text-[#1a1a1a]">{t('editProgramme')}</h1>
         </div>
         <div className="flex gap-2">
           <button 
