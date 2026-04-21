@@ -13,6 +13,8 @@ import {
   Dumbbell, 
   History as HistoryIcon, 
   Flame,
+  Check,
+  Edit2,
   Trash2,
   ArrowUp,
   Target,
@@ -80,7 +82,7 @@ const getAutoVariation = (exerciseName: string) => {
   return EQUIPMENT_OPTIONS[0];
 };
 
-function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updateSet, updateVariation, updateExerciseNotes, addSet, removeSet, onReorder, onOpenInput, isExpanded, onToggleExpand, settings, t }: any) {
+function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updateSet, updateVariation, updateExerciseNotes, renameExercise, addSet, removeSet, onReorder, onOpenInput, isExpanded, onToggleExpand, settings, t }: any) {
   const controls = useDragControls();
   return (
     <Reorder.Item 
@@ -96,6 +98,7 @@ function ReorderableExercise({ ex, getExerciseLog, getPreviousWorkoutData, updat
         onUpdateSet={(setIdx: number, field: any, val: any) => updateSet(ex, setIdx, field, val)}
         onUpdateVariation={(val: string) => updateVariation(ex.name, val)}
         onUpdateNotes={(val: string) => updateExerciseNotes(ex.name, val)}
+        onRenameExercise={(newName: string) => renameExercise(ex.name, newName)}
         onAddSet={() => addSet(ex)}
         onRemoveSet={(idx?: number) => removeSet(ex, idx)}
         dragControls={controls}
@@ -632,6 +635,57 @@ export default function App() {
         }
       };
     });
+  };
+
+  const renameExercise = (oldName: string, newName: string) => {
+    if (!currentDay || !newName.trim() || oldName === newName) return;
+
+    // Update programme
+    setProgramme(prev => {
+      const newProgramme = prev.map(day => {
+        if (day.id === currentDay.id) {
+          return {
+            ...day,
+            exercises: day.exercises.map(ex => 
+              ex.name === oldName ? { ...ex, name: newName } : ex
+            )
+          };
+        }
+        return day;
+      });
+      return newProgramme;
+    });
+
+    // Update current session logs to keep data in sync
+    setLogs(prev => {
+      const dayLogs = prev[today] || {};
+      const workoutLogs = dayLogs[currentDay.id];
+      if (!workoutLogs || !workoutLogs[oldName]) return prev;
+
+      const newWorkoutLogs = { ...workoutLogs };
+      newWorkoutLogs[newName] = newWorkoutLogs[oldName];
+      delete newWorkoutLogs[oldName];
+
+      // Update exercise order if it exists
+      if (newWorkoutLogs.exerciseOrder) {
+        newWorkoutLogs.exerciseOrder = newWorkoutLogs.exerciseOrder.map((name: string) => 
+          name === oldName ? newName : name
+        );
+      }
+
+      return {
+        ...prev,
+        [today]: {
+          ...dayLogs,
+          [currentDay.id]: newWorkoutLogs
+        }
+      };
+    });
+    
+    // Also update expandedExercise state if it was expanded
+    if (expandedExercise === oldName) {
+      setExpandedExercise(newName);
+    }
   };
 
   const updateNotes = (notes: string) => {
@@ -1227,6 +1281,7 @@ export default function App() {
                     updateSet={updateSet}
                     updateVariation={updateVariation}
                     updateExerciseNotes={updateExerciseNotes}
+                    renameExercise={renameExercise}
                     addSet={addSet}
                     removeSet={removeSet}
                     onOpenInput={(idx: number, field: 'weight' | 'reps', val: string, placeholder: string) => {
@@ -2446,7 +2501,7 @@ function NumberPad({ value, onUpdate, onDone, placeholder }: any) {
             <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-400 mb-1">Target Value</p>
             <div className="flex items-baseline gap-1">
               <p className="text-4xl font-display font-black font-mono text-[#1a1a1a]">
-                {value || <span className="text-zinc-200">{placeholder}</span>}
+                {value || <span className="text-zinc-400">{placeholder}</span>}
               </p>
             </div>
           </div>
@@ -2489,6 +2544,7 @@ interface ExerciseCardProps {
   onUpdateSet: (idx: number, field: keyof SetLog, val: any) => void;
   onUpdateVariation: (val: string) => void;
   onUpdateNotes: (val: string) => void;
+  onRenameExercise: (newName: string) => void;
   onAddSet: () => void;
   onRemoveSet: (idx?: number) => void;
   dragControls: any;
@@ -2506,6 +2562,7 @@ function ExerciseCard({
   onUpdateSet, 
   onUpdateVariation,
   onUpdateNotes,
+  onRenameExercise,
   onAddSet,
   onRemoveSet,
   dragControls,
@@ -2519,6 +2576,13 @@ function ExerciseCard({
   const [stopwatchTime, setStopwatchTime] = useState(0);
   const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [newName, setNewName] = useState(exercise.name);
+
+  // Update newName if exercise.name changes from outside
+  useEffect(() => {
+    setNewName(exercise.name);
+  }, [exercise.name]);
 
   useEffect(() => {
     let interval: any;
@@ -2579,25 +2643,77 @@ function ExerciseCard({
         >
           <GripVertical className="w-5 h-5" />
         </div>
-        <button 
+        <div 
           onClick={onToggleExpand}
-          className="flex-1 text-left p-8 pl-4 flex justify-between items-center"
+          className="flex-1 text-left p-8 pl-4 pr-6 flex justify-between items-stretch cursor-pointer transition-all active:bg-white/5"
         >
-          <div className="space-y-1">
-            <div className="flex items-center gap-3">
-              <h3 className="text-[15px] font-display font-bold tracking-tight text-[#1a1a1a]">{exercise.name}</h3>
-              {isFullyCompleted && <CheckCircle className="w-5 h-5 text-accent fill-accent/10" />}
+          <div className="flex-1 flex flex-col justify-between py-1">
+            <div className="flex items-center gap-3 pr-4 h-[40px]">
+              {isEditingName ? (
+                <input
+                  autoFocus
+                  type="text"
+                  value={newName}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      onRenameExercise(newName);
+                      setIsEditingName(false);
+                    }
+                    if (e.key === 'Escape') {
+                      setNewName(exercise.name);
+                      setIsEditingName(false);
+                    }
+                  }}
+                  className="w-full max-w-[180px] bg-white/50 border-none outline-none text-[15px] font-display font-bold text-[#1a1a1a] rounded-lg px-2 py-1 focus:ring-2 focus:ring-accent/20"
+                />
+              ) : (
+                <h3 className="text-[15px] font-display font-bold tracking-tight text-[#1a1a1a] flex-1 leading-tight break-words">{exercise.name}</h3>
+              )}
+              {isFullyCompleted && !isEditingName && <CheckCircle className="w-5 h-5 text-accent fill-accent/10 shrink-0" />}
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-1 mt-3">
               <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
-                {sets.length} Sets <span className="text-zinc-200 mx-2">|</span> {exercise.reps} Reps
+                {sets.length} Sets
+              </span>
+              <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em]">
+                {exercise.reps} Reps
               </span>
             </div>
           </div>
-          <div className={`p-3 rounded-2xl glass-button transition-transform duration-500 ${isExpanded ? 'rotate-180' : ''}`}>
-            <ChevronDown className="w-5 h-5 text-zinc-400" />
+          <div className="flex flex-col justify-between items-center py-1 shrink-0">
+            <div className="flex items-center justify-center h-[40px]">
+              {isEditingName ? (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRenameExercise(newName);
+                    setIsEditingName(false);
+                  }}
+                  className="p-2 rounded-xl bg-accent text-white shadow-lg active:scale-90 transition-all"
+                >
+                  <Check className="w-4 h-4" />
+                </button>
+              ) : (
+                <button 
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setIsEditingName(true);
+                  }}
+                  className="p-2 rounded-xl glass-button text-zinc-300 hover:text-accent transition-all active:scale-90"
+                >
+                  <Edit2 className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <div className="flex items-center justify-center h-[28px] mt-3">
+              <div className={`p-2 rounded-xl glass-button transition-transform duration-500 ${isExpanded ? 'rotate-180' : ''}`}>
+                <ChevronDown className="w-4 h-4 text-zinc-400" />
+              </div>
+            </div>
           </div>
-        </button>
+        </div>
       </div>
 
       {/* Accordion Content */}
@@ -2685,7 +2801,12 @@ function ExerciseCard({
                             onClick={() => {
                               const currentTotal = parseFloat(set.weight) || settings.bodyWeight || 0;
                               const addedWeight = Math.max(0, currentTotal - (settings.bodyWeight || 0));
-                              const placeholder = "0.0";
+                              
+                              // Calculate prev added weight
+                              const prevTotalWeight = parseFloat(prevLog?.sets[i]?.weight || "0");
+                              const prevAddedWeight = prevTotalWeight > 0 ? Math.max(0, prevTotalWeight - (settings.bodyWeight || 0)) : 0;
+                              const placeholder = prevAddedWeight > 0 ? prevAddedWeight.toString() : "0.0";
+                              
                               onOpenInput(i, 'weight', addedWeight > 0 ? addedWeight.toString() : '', placeholder);
                             }}
                             className="w-full glass-inset rounded-2xl py-2 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-accent/20 outline-none transition-all text-[#1a1a1a] min-h-[52px] flex flex-col items-center justify-center"
@@ -2693,21 +2814,28 @@ function ExerciseCard({
                             <span className="text-[9px] text-zinc-400 uppercase tracking-widest mb-0.5">{settings.bodyWeight || "0"} +</span>
                             <span className="text-sm">
                               {(() => {
-                                const currentTotal = parseFloat(set.weight) || settings.bodyWeight || 0;
-                                const addedWeight = currentTotal - (settings.bodyWeight || 0);
-                                return addedWeight > 0 ? addedWeight : <span className="text-zinc-400">0.0</span>;
+                                const currentAddedWeight = set.weight ? Math.max(0, parseFloat(set.weight) - (settings.bodyWeight || 0)) : null;
+                                
+                                if (currentAddedWeight !== null && currentAddedWeight > 0) {
+                                  return currentAddedWeight;
+                                }
+
+                                // Calculate prev added weight for placeholder logic
+                                const prevTotalWeight = parseFloat(prevLog?.sets[i]?.weight || "0");
+                                const prevAddedWeight = prevTotalWeight > 0 ? Math.max(0, prevTotalWeight - (settings.bodyWeight || 0)) : 0;
+                                return <span className="text-zinc-400">{prevAddedWeight > 0 ? prevAddedWeight : "0.0"}</span>;
                               })()}
                             </span>
                           </button>
                         ) : (
                           <button 
                             onClick={() => {
-                              const placeholder = sets[i-1]?.weight || prevLog?.sets[i]?.weight || "0.0";
+                              const placeholder = prevLog?.sets[i]?.weight || sets[i-1]?.weight || "0.0";
                               onOpenInput(i, 'weight', set.weight, placeholder);
                             }}
                             className="w-full glass-inset rounded-2xl py-3 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-accent/20 outline-none transition-all text-[#1a1a1a] min-h-[44px] flex items-center justify-center"
                           >
-                            {set.weight || <span className="text-zinc-400">{sets[i-1]?.weight || prevLog?.sets[i]?.weight || "0.0"}</span>}
+                            {set.weight || <span className="text-zinc-400">{prevLog?.sets[i]?.weight || sets[i-1]?.weight || "0.0"}</span>}
                           </button>
                         )}
                         {i === 0 && <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[8px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Weight</span>}
@@ -2715,12 +2843,12 @@ function ExerciseCard({
                       <div className="relative">
                         <button 
                           onClick={() => {
-                            const placeholder = sets[i-1]?.reps || prevLog?.sets[i]?.reps || "0";
+                            const placeholder = prevLog?.sets[i]?.reps || sets[i-1]?.reps || "0";
                             onOpenInput(i, 'reps', set.reps, placeholder);
                           }}
                           className="w-full glass-inset rounded-2xl py-3 text-center text-sm font-bold font-mono focus:ring-2 focus:ring-accent/20 outline-none transition-all text-[#1a1a1a] min-h-[44px] flex items-center justify-center"
                         >
-                          {set.reps || <span className="text-zinc-400">{sets[i-1]?.reps || prevLog?.sets[i]?.reps || "0"}</span>}
+                          {set.reps || <span className="text-zinc-400">{prevLog?.sets[i]?.reps || sets[i-1]?.reps || "0"}</span>}
                         </button>
                         {i === 0 && <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[8px] font-bold text-zinc-400 uppercase tracking-[0.2em]">Reps</span>}
                       </div>
