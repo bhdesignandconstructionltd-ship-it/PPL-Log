@@ -62,7 +62,7 @@ import {
   parseISO
 } from 'date-fns';
 import { LoadingScreen, FolderIcon } from './components/LoadingScreen';
-import { PPL_PROGRAMME, UPPER_LOWER_PROGRAMME, FULL_BODY_PROGRAMME } from './data/programme';
+import { PPL_PROGRAMME, UPPER_LOWER_PROGRAMME, FULL_BODY_PROGRAMME, BASIC_STRENGTH_PROGRAMME } from './data/programme';
 import { DailyLog, WorkoutLog, SetLog, Exercise, WorkoutDay, SavedTemplate } from './types';
 
 const STORAGE_KEY = 'ppl_pro_logs';
@@ -70,15 +70,20 @@ const DAY_INDEX_KEY = 'ppl_pro_day_index';
 const SETTINGS_KEY = 'ppl_pro_settings';
 const PROGRAMME_KEY = 'ppl_pro_custom_programme';
 const SAVED_TEMPLATES_KEY = 'ppl_pro_saved_templates';
-const EQUIPMENT_OPTIONS = ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT'];
+const EQUIPMENT_OPTIONS = ['DUMBBELL', 'BARBELL', 'MACHINE', 'CABLE', 'BODYWEIGHT', 'BAND'];
 
-const getAutoVariation = (exerciseName: string) => {
+const getAutoVariation = (exerciseName: string, options?: string[]) => {
   const name = exerciseName.toUpperCase();
   if (name.includes('MACHINE')) return 'MACHINE';
   if (name.includes('DUMBBELL') || name.includes('DB')) return 'DUMBBELL';
   if (name.includes('BARBELL') || name.includes('BB')) return 'BARBELL';
   if (name.includes('CABLE')) return 'CABLE';
-  if (name.includes('BODYWEIGHT') || name.includes('BODY WEIGHT')) return 'BODYWEIGHT';
+  if (name.includes('BAND') || name.includes('彈力帶')) return 'BAND';
+  if (name.includes('BODYWEIGHT') || name.includes('BODY WEIGHT') || name.includes('自重') || name.includes('自重坐站') || name.includes('抬腿') || name.includes('單腳站立') || name.includes('提踵')) return 'BODYWEIGHT';
+  
+  if (options && options.length > 0 && EQUIPMENT_OPTIONS.includes(options[0])) {
+    return options[0];
+  }
   return EQUIPMENT_OPTIONS[0];
 };
 
@@ -250,6 +255,7 @@ export default function App() {
         confirmApplyTemplate: "Apply this template? This will overwrite your current programme.",
         defaultUpperLowerProgramme: "DEFAULT UPPER LOWER",
         defaultFullBodyProgramme: "DEFAULT FULL BODY",
+        defaultBasicStrengthProgramme: "基本肌力訓練",
         exerciseNotes: "Exercise Notes",
         exerciseNotesPlaceholder: "Add notes for this exercise...",
         cancel: "CANCEL",
@@ -328,6 +334,7 @@ export default function App() {
         confirmApplyTemplate: "套用此計畫？這將覆蓋你目前的訓練計畫。",
         defaultUpperLowerProgramme: "預設 上下肢計畫",
         defaultFullBodyProgramme: "預設 全身計畫",
+        defaultBasicStrengthProgramme: "基本肌力訓練計畫",
         exerciseNotes: "動作筆記",
         exerciseNotesPlaceholder: "為此動作添加筆記...",
         cancel: "取消",
@@ -367,7 +374,8 @@ export default function App() {
     const defaultTemplates: SavedTemplate[] = [
       { id: 'default-ppl', name: t('defaultPplProgramme'), programme: PPL_PROGRAMME, isDefault: true, pinned: true },
       { id: 'default-upper-lower', name: t('defaultUpperLowerProgramme'), programme: UPPER_LOWER_PROGRAMME, isDefault: true, pinned: true },
-      { id: 'default-full-body', name: t('defaultFullBodyProgramme'), programme: FULL_BODY_PROGRAMME, isDefault: true, pinned: true }
+      { id: 'default-full-body', name: t('defaultFullBodyProgramme'), programme: FULL_BODY_PROGRAMME, isDefault: true, pinned: true },
+      { id: 'default-basic-strength', name: t('defaultBasicStrengthProgramme'), programme: BASIC_STRENGTH_PROGRAMME, isDefault: true, pinned: true }
     ];
     if (!saved) return defaultTemplates;
     
@@ -522,7 +530,7 @@ export default function App() {
       const dayLogs = prev[today] || {};
       const workoutLogs = dayLogs[currentDay.id] || {};
       const exerciseLog = workoutLogs[exerciseName] || {
-        variation: getPreviousWorkoutData?.[exerciseName]?.variation || getAutoVariation(exerciseName),
+        variation: getPreviousWorkoutData?.[exerciseName]?.variation || getAutoVariation(exerciseName, exercise.options),
         sets: Array(exercise.sets).fill(null).map(() => ({
           weight: '',
           reps: '',
@@ -715,11 +723,12 @@ export default function App() {
 
   const updateExerciseNotes = (exerciseName: string, notes: string) => {
     if (!currentDay) return;
+    const exercise = currentDay.exercises.find(e => e.name === exerciseName);
     setLogs(prev => {
       const dayLogs = prev[today] || {};
       const workoutLogs = dayLogs[currentDay.id] || {};
       const exerciseLog = workoutLogs[exerciseName] || {
-        variation: getPreviousWorkoutData?.[exerciseName]?.variation || getAutoVariation(exerciseName),
+        variation: getPreviousWorkoutData?.[exerciseName]?.variation || getAutoVariation(exerciseName, exercise?.options),
         sets: Array(programme.find(d => d.id === currentDay.id)?.exercises.find(e => e.name === exerciseName)?.sets || 0).fill(null).map(() => ({
           weight: '',
           reps: '',
@@ -947,7 +956,7 @@ export default function App() {
       const dayLogs = prev[today] || {};
       const workoutLogs = dayLogs[currentDay.id] || {};
       const exerciseLog = workoutLogs[exerciseName] || {
-        variation: getPreviousWorkoutData?.[exerciseName]?.variation || getAutoVariation(exerciseName),
+        variation: getPreviousWorkoutData?.[exerciseName]?.variation || getAutoVariation(exerciseName, exercise.options),
         sets: Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }))
       };
 
@@ -973,7 +982,7 @@ export default function App() {
       const dayLogs = prev[today] || {};
       const workoutLogs = dayLogs[currentDay.id] || {};
       const exerciseLog = workoutLogs[exerciseName] || {
-        variation: getPreviousWorkoutData?.[exerciseName]?.variation || getAutoVariation(exerciseName),
+        variation: getPreviousWorkoutData?.[exerciseName]?.variation || getAutoVariation(exerciseName, exercise.options),
         sets: Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }))
       };
 
@@ -2662,7 +2671,7 @@ function ExerciseCard({
   settings,
   t
 }: ExerciseCardProps) {
-  const isStretch = exercise.name.toLowerCase().includes('stretch');
+  const isStretch = exercise.name.toLowerCase().includes('stretch') || exercise.name.includes('單腳站立');
   const [stopwatchTime, setStopwatchTime] = useState(0);
   const [isStopwatchRunning, setIsStopwatchRunning] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
@@ -2690,7 +2699,7 @@ function ExerciseCard({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const variation = log?.variation || prevLog?.variation || getAutoVariation(exercise.name);
+  const variation = log?.variation || prevLog?.variation || getAutoVariation(exercise.name, exercise.options);
   const sets = log?.sets || Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }));
 
   const completedCount = sets.filter(s => s.completed).length;

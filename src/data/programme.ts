@@ -180,3 +180,26 @@ export const FULL_BODY_PROGRAMME: WorkoutDay[] = [
     ]
   }
 ];
+
+export const BASIC_STRENGTH_PROGRAMME: WorkoutDay[] = [
+  {
+    id: 'basic-upper-1',
+    name: '上半身 (2 mins rest)',
+    exercises: [
+      { name: '(熱身) 手臂繞圈', sets: 2, reps: '12', options: ['BAND', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: '(熱身) 彈力帶拉開', sets: 2, reps: '12', options: ['BAND', 'BODYWEIGHT'], bodyPart: 'upper' },
+      { name: '坐姿彈力帶划船', sets: 3, reps: '10-12', options: ['BAND', 'CABLE', 'MACHINE'], bodyPart: 'upper' },
+      { name: '牆上掌上壓', sets: 3, reps: '10-12', options: ['BODYWEIGHT'], bodyPart: 'upper' },
+    ]
+  },
+  {
+    id: 'basic-lower-1',
+    name: '下半身 (2 mins rest)',
+    exercises: [
+      { name: '自重坐站', sets: 3, reps: '10-15', options: ['BODYWEIGHT'], bodyPart: 'lower' },
+      { name: '抬腿', sets: 3, reps: '10-15', options: ['BODYWEIGHT'], bodyPart: 'lower' },
+      { name: '單腳站立', sets: 3, reps: 'Stopwatch', options: ['BODYWEIGHT'], bodyPart: 'lower' },
+      { name: '站姿提踵', sets: 3, reps: '10-15', options: ['BODYWEIGHT', 'DUMBBELL', 'BARBELL', 'MACHINE'], bodyPart: 'lower' },
+    ]
+  }
+];
