@@ -23,6 +23,10 @@ import {
   Play,
   Pause,
   RotateCcw,
+  Plus,
+  Minus,
+  Calculator,
+  Calendar as CalendarIcon,
   GripVertical,
   Calendar as CalendarIcon,
   ArrowLeft,
@@ -166,6 +170,7 @@ function ConfirmationModal({ isOpen, title, message, onConfirm, onCancel, t }: a
 
 export default function App() {
   const [isLoading, setIsLoading] = useState(true);
+  const [showCalculator, setShowCalculator] = useState(false);
 
   useEffect(() => {
     const timer = setTimeout(() => setIsLoading(false), 4000);
@@ -262,7 +267,9 @@ export default function App() {
         confirm: "CONFIRM",
         createProgramme: "Create Programme",
         exportCurrentProgramme: "Export Current Programme",
-        programme: "Programme"
+        programme: "Programme",
+        calculator: "Calculator",
+        calculatorPlateBreakdown: "Plate Breakdown"
       },
       zh: {
         repArchive: "訓練紀錄",
@@ -341,7 +348,9 @@ export default function App() {
         confirm: "確認",
         createProgramme: "建立訓練計畫",
         exportCurrentProgramme: "匯出當前計畫",
-        programme: "訓練計畫"
+        programme: "訓練計畫",
+        calculator: "計算機",
+        calculatorPlateBreakdown: "槓片組合"
       }
     };
     return translations[settings.language]?.[key] || translations['en'][key] || key;
@@ -1258,17 +1267,10 @@ export default function App() {
               </div>
               <div className="flex items-center gap-3">
                 <button 
-                  onClick={() => setSettings({ ...settings, language: settings.language === 'en' ? 'zh' : 'en' })}
+                  onClick={() => setShowCalculator(true)}
                   className="glass-button w-12 h-12 rounded-2xl flex items-center justify-center relative"
                 >
-                  <div className="relative w-9 h-9">
-                    <span className={`absolute bottom-1 right-1 text-[18px] font-black leading-none transition-all duration-300 ${settings.language === 'en' ? 'text-accent' : 'text-zinc-300'}`}>
-                      A
-                    </span>
-                    <span className={`absolute top-1 left-1 text-[15px] font-black leading-none transition-all duration-300 ${settings.language === 'zh' ? 'text-accent' : 'text-zinc-400'}`}>
-                      文
-                    </span>
-                  </div>
+                  <Calculator className="w-5 h-5 text-accent" />
                 </button>
                 <button 
                   onClick={() => setActiveTab('settings')}
@@ -2173,7 +2175,154 @@ export default function App() {
         onCancel={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
         t={t}
       />
+
+      <CalculatorModal 
+        isOpen={showCalculator} 
+        onClose={() => setShowCalculator(false)}
+        settings={settings}
+        t={t}
+      />
     </div>
+  );
+}
+
+function CalculatorModal({ isOpen, onClose, settings, t }: any) {
+  const [expression, setExpression] = useState('');
+  const [result, setResult] = useState<number | null>(null);
+
+  const keys = [
+    '7', '8', '9', '/',
+    '4', '5', '6', '*',
+    '1', '2', '3', '-',
+    '0', '.', '=', '+'
+  ];
+
+  const handleKey = (key: string) => {
+    if (key === '=') {
+      try {
+        // Simple evaluator for standard math expressions
+        // sanitize first
+        const sanitized = expression.replace(/[^-+*/0-9.]/g, '');
+        if (!sanitized) return;
+        
+        // Use Function instead of eval for slightly better safety
+        const evalResult = new Function(`return ${sanitized}`)();
+        setResult(Number(evalResult));
+      } catch (e) {
+        setResult(null);
+      }
+    } else {
+      setExpression(prev => {
+        // prevent double operators
+        const lastChar = prev.slice(-1);
+        const operators = ['+', '-', '*', '/'];
+        if (operators.includes(key) && operators.includes(lastChar)) {
+          return prev.slice(0, -1) + key;
+        }
+        return prev + key;
+      });
+    }
+  };
+
+  const clear = () => {
+    setExpression('');
+    setResult(null);
+  };
+
+  const backspace = () => {
+    setExpression(prev => prev.slice(0, -1));
+  };
+  
+  const plates = settings.weightUnit === 'kg' 
+    ? [20, 10, 5, 1.25] 
+    : [45, 35, 25, 10, 5, 2.5];
+
+  const breakdown = useMemo(() => {
+    if (result === null || result <= 0) return null;
+    let remaining = result;
+    const counts: Record<number, number> = {};
+    for (const p of plates) {
+      const c = Math.floor(remaining / p);
+      if (c > 0) {
+        counts[p] = c;
+        remaining = parseFloat((remaining % p).toFixed(2));
+      }
+    }
+    
+    const parts = Object.entries(counts)
+      .sort((a, b) => Number(b[0]) - Number(a[0]))
+      .map(([v, c]) => `${c} x ${v}${settings.weightUnit}`);
+      
+    return parts.length > 0 ? parts.join(' + ') : null;
+  }, [result, settings.weightUnit, plates]);
+
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 bg-black/20 backdrop-blur-sm z-[100]"
+          />
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95, y: '-45%', x: '-50%' }}
+            animate={{ opacity: 1, scale: 1, y: '-50%', x: '-50%' }}
+            exit={{ opacity: 0, scale: 0.95, y: '-45%', x: '-50%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+            className="fixed top-1/2 left-1/2 z-[101] w-[calc(100%-2.5rem)] max-w-md bg-white/80 backdrop-blur-2xl border border-white/50 p-6 pb-8 rounded-[3rem] shadow-[0_40px_100px_rgba(0,0,0,0.2)] max-h-[90vh] overflow-y-auto"
+          >
+            <div className="max-w-md mx-auto">
+              {/* Display */}
+              <div className="glass-inset bg-white/40 rounded-3xl p-5 mb-5 min-h-[110px] flex flex-col justify-end items-end">
+                <div className="text-[#1a1a1a] font-display font-black text-3xl mb-1 overflow-hidden text-ellipsis whitespace-nowrap w-full text-right tracking-tight">
+                  {expression || '0'}
+                </div>
+                <div className="text-accent font-display font-black text-3xl flex items-baseline gap-2">
+                  <span>{result !== null ? result.toLocaleString() : ''}</span>
+                  {result !== null && <span className="text-xs text-zinc-300 uppercase tracking-widest">{settings.weightUnit}</span>}
+                </div>
+                {breakdown && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="w-full pt-4 mt-4 border-t border-black/5"
+                  >
+                    <p className="text-[8px] font-black text-zinc-400 uppercase tracking-[0.2em] mb-1">{t('calculatorPlateBreakdown')}</p>
+                    <p className="text-[10px] font-bold text-accent font-mono text-right">{breakdown}</p>
+                  </motion.div>
+                )}
+              </div>
+
+              {/* Grid */}
+              <div className="grid grid-cols-4 gap-2">
+                <button onClick={clear} className="h-14 glass-button rounded-xl flex items-center justify-center text-danger font-display font-black text-xs uppercase tracking-widest">C</button>
+                <button onClick={backspace} className="h-14 glass-button rounded-xl flex items-center justify-center text-zinc-400 font-display font-black text-xs uppercase tracking-widest col-span-1">⌫</button>
+                <div className="col-span-1"></div>
+                <button onClick={onClose} className="h-14 glass-button rounded-xl flex items-center justify-center text-zinc-400">
+                  <X className="w-5 h-5" />
+                </button>
+                
+                {keys.map(key => (
+                  <button
+                    key={key}
+                    onClick={() => handleKey(key)}
+                    className={`h-14 rounded-xl font-display font-black text-lg transition-all active:scale-95 flex items-center justify-center
+                      ${key === '=' ? 'bg-accent text-white shadow-lg shadow-accent/20' : 'glass-button text-[#1a1a1a]'}
+                      ${['/', '*', '-', '+'].includes(key) ? 'text-accent' : ''}
+                    `}
+                  >
+                    {key === '*' ? '×' : key === '/' ? '÷' : key}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   );
 }
 
