@@ -558,11 +558,13 @@ export default function App() {
       // If marking as completed, check if we need to use placeholders
       if (field === 'completed' && value === true) {
         if (!currentSet.weight) {
-          const placeholder = getPreviousWorkoutData?.[exerciseName]?.sets[setIndex]?.weight || newSets[setIndex - 1]?.weight || "0";
+          const prevValue = getPreviousWorkoutData?.[exerciseName]?.sets[setIndex]?.weight;
+          const placeholder = (prevValue && prevValue !== "") ? prevValue : (newSets[setIndex - 1]?.weight || "0");
           currentSet.weight = placeholder;
         }
         if (!currentSet.reps) {
-          const placeholder = getPreviousWorkoutData?.[exerciseName]?.sets[setIndex]?.reps || newSets[setIndex - 1]?.reps || "0";
+          const prevValue = getPreviousWorkoutData?.[exerciseName]?.sets[setIndex]?.reps;
+          const placeholder = (prevValue && prevValue !== "") ? prevValue : (newSets[setIndex - 1]?.reps || "0");
           currentSet.reps = placeholder;
         }
       }
@@ -577,17 +579,24 @@ export default function App() {
         startRestTimer(exercise);
       }
 
+      // If we are editing a completed workout, unmark it as completed
+      const newWorkoutLogs = { 
+        ...workoutLogs,
+        [exerciseName]: {
+          ...exerciseLog,
+          sets: newSets
+        }
+      };
+      
+      if (newWorkoutLogs.completed) {
+        delete newWorkoutLogs.completed;
+      }
+
       return {
         ...prev,
         [today]: {
           ...dayLogs,
-          [currentDay.id]: {
-            ...workoutLogs,
-            [exerciseName]: {
-              ...exerciseLog,
-              sets: newSets
-            }
-          }
+          [currentDay.id]: newWorkoutLogs
         }
       };
     });
@@ -759,12 +768,18 @@ export default function App() {
 
   const getExerciseLog = (exerciseName: string) => {
     if (!currentDay) return undefined;
-    return logs[today]?.[currentDay.id]?.[exerciseName];
+    const log = logs[today]?.[currentDay.id];
+    if (log?.completed) return undefined;
+    return log?.[exerciseName];
   };
 
   const currentDayExercises = useMemo(() => {
     if (!currentDay) return [];
-    const sessionOrder = logs[today]?.[currentDay.id]?.exerciseOrder;
+    const sessionLog = logs[today]?.[currentDay.id];
+    // If session is completed, we show a fresh view of exercises
+    if (sessionLog?.completed) return currentDay.exercises;
+    
+    const sessionOrder = sessionLog?.exerciseOrder;
     if (sessionOrder) {
       return sessionOrder
         .map(name => currentDay.exercises.find(ex => ex.name === name))
@@ -776,6 +791,11 @@ export default function App() {
   const workoutProgress = useMemo(() => {
     if (!currentDay) return 0;
     const dayLog = logs[today]?.[currentDay.id];
+    
+    // If explicitly completed, show 100% or reset? 
+    // User wants "reset", but if we show 0% it might be confusing.
+    // However, if we show 0% and empty boxes, it IS a reset.
+    if (dayLog?.completed) return 0;
     
     let totalSets = 0;
     let completedSets = 0;
@@ -1043,6 +1063,34 @@ export default function App() {
 
   const finishWorkout = () => {
     if (programme.length === 0) return;
+    
+    // Mark as completed in logs
+    setLogs(prev => {
+      const dayLogs = prev[today] || {};
+      const workoutLogs = dayLogs[currentDay.id];
+      if (!workoutLogs) {
+        // Even if no logs exist, we can mark it as a "skip" or empty completed session
+        return {
+          ...prev,
+          [today]: {
+            ...dayLogs,
+            [currentDay.id]: { completed: true } as any
+          }
+        };
+      }
+      
+      return {
+        ...prev,
+        [today]: {
+          ...dayLogs,
+          [currentDay.id]: {
+            ...workoutLogs,
+            completed: true
+          }
+        }
+      };
+    });
+
     setShowArchivedPopup(true);
     setTimeout(() => {
       setShowArchivedPopup(false);
