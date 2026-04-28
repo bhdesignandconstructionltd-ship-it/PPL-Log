@@ -625,18 +625,25 @@ export default function App() {
         }));
       }
 
+      // If we are editing a completed workout, unmark it as completed
+      const newWorkoutLogs = { 
+        ...workoutLogs,
+        [exerciseName]: {
+          ...exerciseLog,
+          variation,
+          sets: newSets
+        }
+      };
+      
+      if (newWorkoutLogs.completed) {
+        delete newWorkoutLogs.completed;
+      }
+
       return {
         ...prev,
         [today]: {
           ...dayLogs,
-          [currentDay.id]: {
-            ...workoutLogs,
-            [exerciseName]: {
-              ...exerciseLog,
-              variation,
-              sets: newSets
-            }
-          }
+          [currentDay.id]: newWorkoutLogs
         }
       };
     });
@@ -648,14 +655,20 @@ export default function App() {
       const dayLogs = prev[today] || {};
       const workoutLogs = dayLogs[currentDay.id] || {};
       
+      const newWorkoutLogs = {
+        ...workoutLogs,
+        exerciseOrder: newOrder
+      };
+
+      if (newWorkoutLogs.completed) {
+        delete newWorkoutLogs.completed;
+      }
+
       return {
         ...prev,
         [today]: {
           ...dayLogs,
-          [currentDay.id]: {
-            ...workoutLogs,
-            exerciseOrder: newOrder
-          }
+          [currentDay.id]: newWorkoutLogs
         }
       };
     });
@@ -750,17 +763,23 @@ export default function App() {
         }))
       };
       
+      const newWorkoutLogs = {
+        ...workoutLogs,
+        [exerciseName]: {
+          ...exerciseLog,
+          notes
+        }
+      };
+
+      if (newWorkoutLogs.completed) {
+        delete newWorkoutLogs.completed;
+      }
+
       return {
         ...prev,
         [today]: {
           ...dayLogs,
-          [currentDay.id]: {
-            ...workoutLogs,
-            [exerciseName]: {
-              ...exerciseLog,
-              notes
-            }
-          }
+          [currentDay.id]: newWorkoutLogs
         }
       };
     });
@@ -1004,17 +1023,23 @@ export default function App() {
         sets: Array(exercise.sets).fill(null).map(() => ({ weight: '', reps: '', completed: false }))
       };
 
+      const newWorkoutLogs = {
+        ...workoutLogs,
+        [exerciseName]: {
+          ...exerciseLog,
+          sets: [...exerciseLog.sets, { weight: '', reps: '', completed: false }]
+        }
+      };
+
+      if (newWorkoutLogs.completed) {
+        delete newWorkoutLogs.completed;
+      }
+
       return {
         ...prev,
         [today]: {
           ...dayLogs,
-          [currentDay.id]: {
-            ...workoutLogs,
-            [exerciseName]: {
-              ...exerciseLog,
-              sets: [...exerciseLog.sets, { weight: '', reps: '', completed: false }]
-            }
-          }
+          [currentDay.id]: newWorkoutLogs
         }
       };
     });
@@ -1038,17 +1063,23 @@ export default function App() {
           newSets.pop();
         }
 
+        const newWorkoutLogs = {
+          ...workoutLogs,
+          [exerciseName]: {
+            ...exerciseLog,
+            sets: newSets
+          }
+        };
+
+        if (newWorkoutLogs.completed) {
+          delete newWorkoutLogs.completed;
+        }
+
         return {
           ...prev,
           [today]: {
             ...dayLogs,
-            [currentDay.id]: {
-              ...workoutLogs,
-              [exerciseName]: {
-                ...exerciseLog,
-                sets: newSets
-              }
-            }
+            [currentDay.id]: newWorkoutLogs
           }
         };
       }
@@ -1122,37 +1153,43 @@ export default function App() {
     const dateStr = format(date, 'yyyy-MM-dd');
     const dayLogs = logs[dateStr];
     if (!dayLogs) return null;
-    const workoutId = Object.keys(dayLogs)[0];
-    if (!workoutId) return null;
+    const workoutIds = Object.keys(dayLogs);
+    if (workoutIds.length === 0) return null;
     
-    const defaultLabels: Record<string, string> = {
-      'push-1': 'Push 1',
-      'pull-1': 'Pull 1',
-      'legs-1': 'Leg 1',
-      'push-2': 'Push 2',
-      'pull-2': 'Pull 2',
-      'legs-2': 'Leg 2'
-    };
+    const count = workoutIds.length;
+    const workoutId = workoutIds[0];
     
-    if (defaultLabels[workoutId]) return defaultLabels[workoutId];
-    
-    let workout = programme.find(p => p.id === workoutId);
-    if (!workout) {
-      for (const tpl of savedTemplates) {
-        workout = tpl.programme.find(p => p.id === workoutId);
-        if (workout) break;
+    const getLabel = (id: string) => {
+      const defaultLabels: Record<string, string> = {
+        'push-1': 'Push 1',
+        'pull-1': 'Pull 1',
+        'legs-1': 'Leg 1',
+        'push-2': 'Push 2',
+        'pull-2': 'Pull 2',
+        'legs-2': 'Leg 2'
+      };
+      
+      if (defaultLabels[id]) return defaultLabels[id];
+      
+      let workout = programme.find(p => p.id === id);
+      if (!workout) {
+        for (const tpl of savedTemplates) {
+          workout = tpl.programme.find(p => p.id === id);
+          if (workout) break;
+        }
       }
+      
+      if (!workout) return id.split('-').map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(' ');
+      
+      const name = workout.name;
+      const match = name.match(/^(Push|Pull|Leg)s?\s*Day\s*(\d+)/i);
+      if (match) return `${match[1]} ${match[2]}`;
+      return name.split(' ').slice(0, 2).join(' ');
     }
-    
-    if (!workout) return null;
-    
-    const name = workout.name;
-    const match = name.match(/^(Push|Pull|Leg)s?\s*Day\s*(\d+)/i);
-    if (match) {
-      return `${match[1]} ${match[2]}`;
-    }
-    
-    return name.split(' ').slice(0, 2).join(' ');
+
+    const firstLabel = getLabel(workoutId);
+    if (count > 1) return `${firstLabel} +${count - 1}`;
+    return firstLabel;
   };
 
   return (
@@ -1749,7 +1786,7 @@ export default function App() {
 
                             <div className="space-y-6">
                               {Object.entries(workoutLog)
-                                .filter(([key]) => key !== 'exerciseOrder' && key !== 'notes')
+                                .filter(([key, val]) => key !== 'exerciseOrder' && key !== 'notes' && key !== 'completed' && typeof val === 'object' && val !== null)
                                 .map(([exName, exLog]: [string, any]) => (
                                   <div key={exName} className="space-y-3">
                                     <div className="flex items-center justify-between">
