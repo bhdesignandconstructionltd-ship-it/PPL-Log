@@ -558,11 +558,12 @@ export default function App() {
       // If marking as completed, check if we need to use placeholders
       if (field === 'completed' && value === true) {
         if (!currentSet.weight) {
-          const placeholder = newSets[setIndex - 1]?.weight || getPreviousWorkoutData?.[exerciseName]?.sets[setIndex]?.weight || "0";
+          const placeholder = getPreviousWorkoutData?.[exerciseName]?.sets[setIndex]?.weight || newSets[setIndex - 1]?.weight || "0";
           currentSet.weight = placeholder;
         }
         if (!currentSet.reps) {
-          currentSet.reps = newSets[setIndex - 1]?.reps || getPreviousWorkoutData?.[exerciseName]?.sets[setIndex]?.reps || "0";
+          const placeholder = getPreviousWorkoutData?.[exerciseName]?.sets[setIndex]?.reps || newSets[setIndex - 1]?.reps || "0";
+          currentSet.reps = placeholder;
         }
       }
 
@@ -674,13 +675,17 @@ export default function App() {
     setLogs(prev => {
       const dayLogs = prev[today] || {};
       const workoutLogs = dayLogs[currentDay.id];
-      if (!workoutLogs || !workoutLogs[oldName]) return prev;
+      if (!workoutLogs) return prev;
 
       const newWorkoutLogs = { ...workoutLogs };
-      newWorkoutLogs[newName] = newWorkoutLogs[oldName];
-      delete newWorkoutLogs[oldName];
+      
+      // Update exercise data if it exists
+      if (newWorkoutLogs[oldName]) {
+        newWorkoutLogs[newName] = newWorkoutLogs[oldName];
+        delete newWorkoutLogs[oldName];
+      }
 
-      // Update exercise order if it exists
+      // Update exercise order if it exists - do this regardless of whether log entry exists for the exercise
       if (newWorkoutLogs.exerciseOrder) {
         newWorkoutLogs.exerciseOrder = newWorkoutLogs.exerciseOrder.map((name: string) => 
           name === oldName ? newName : name
@@ -843,8 +848,9 @@ export default function App() {
 
   const addNewExerciseToActiveDay = () => {
     if (!currentDay) return;
+    const newExerciseName = `${t('newExercise')} ${currentDay.exercises.length + 1}`;
     const newExercise: Exercise = {
-      name: `${t('newExercise')} ${currentDay.exercises.length + 1}`,
+      name: newExerciseName,
       sets: 3,
       reps: '10-12',
       options: [],
@@ -862,6 +868,24 @@ export default function App() {
     });
     
     setProgramme(newProgramme);
+
+    // Update exerciseOrder in logs if it exists
+    setLogs(prev => {
+      const dayLogs = prev[today] || {};
+      const workoutLogs = dayLogs[currentDay.id];
+      if (!workoutLogs || !workoutLogs.exerciseOrder) return prev;
+
+      return {
+        ...prev,
+        [today]: {
+          ...dayLogs,
+          [currentDay.id]: {
+            ...workoutLogs,
+            exerciseOrder: [...workoutLogs.exerciseOrder, newExerciseName]
+          }
+        }
+      };
+    });
   };
 
   const chartData = useMemo(() => {
